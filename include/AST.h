@@ -5,6 +5,17 @@
 #include <string>
 using namespace std;
 
+/*
+CompUnit  ::= FuncDef;
+
+FuncDef   ::= FuncType IDENT "(" ")" Block;
+FuncType  ::= "int";
+
+Block     ::= "{" Stmt "}";
+Stmt      ::= "return" Number ";";
+Number    ::= INT_CONST;
+
+*/
 
 // 所有 AST 的基类
 class BaseAST {
@@ -12,6 +23,7 @@ class BaseAST {
   virtual ~BaseAST() = default;
 
   virtual void Dump() const = 0;
+  virtual void GenerateIR() const = 0;
 };
 
 // CompUnit 是 BaseAST
@@ -24,6 +36,9 @@ class CompUnitAST : public BaseAST {
     std::cout << "CompUnitAST { ";
     func_def->Dump();
     std::cout << " }";
+  }
+  void GenerateIR() const override {
+    func_def->GenerateIR();
   }
 };
 
@@ -41,6 +56,12 @@ class FuncDefAST : public BaseAST {
     block->Dump();
     std::cout << " }";
   }
+  void GenerateIR() const override {
+    std::cout << "fun ";
+    std::cout << "@" << ident << "(): ";
+    func_type->GenerateIR();
+    block->GenerateIR();
+  }
 };
 
 // FuncType 也是 BaseAST
@@ -50,6 +71,11 @@ class FuncTypeAST : public BaseAST {
 
   void Dump() const override {
     std::cout << "FuncTypeAST { " << type << " }";
+  }
+  void GenerateIR() const override {
+    if(type=="int"){
+      std::cout << "i32 ";
+    }
   }
 };
 
@@ -63,6 +89,12 @@ class BlockAST : public BaseAST {
     stmt->Dump();
     std::cout << " }";
   }
+  void GenerateIR() const override {
+    std::cout << "{" << endl;
+    std::cout << "%" << "entry:" << endl;
+    stmt->GenerateIR();
+    std::cout << "}";
+  }
 };
 
 // Stmt 也是 BaseAST
@@ -72,6 +104,9 @@ class StmtAST : public BaseAST {
 
   void Dump() const override {
     std::cout << "StmtAST { " << number << " }";
+  }
+  void GenerateIR() const override {
+    std::cout << "  ret " << number << endl;
   }
 };
 

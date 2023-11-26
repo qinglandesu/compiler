@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +22,7 @@ int main(int argc, const char *argv[]) {
   assert(argc == 5);
   auto mode = argv[1];
   auto input = argv[2];
+  auto option = argv[3];
   auto output = argv[4];
 
   // 打开输入文件, 并且指定 lexer 在解析的时候读取这个文件
@@ -32,10 +34,25 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
-  // dump AST
-  ast->Dump();
-  cout << endl;
+  fclose(yyin);
 
+  if(string(option)=="-o"){
+    ofstream outputFile(output);
+    assert(outputFile.is_open());
+
+    streambuf *coutbuf = cout.rdbuf();
+    // 重定向标准输出到输出文件
+    cout.rdbuf(outputFile.rdbuf());
+
+    if(string(mode)=="-koopa"){
+      ast->GenerateIR();
+    }
+
+    outputFile.flush();
+
+    // 恢复标准输出
+    cout.rdbuf(coutbuf);
+  }
   return 0;
 }
 
