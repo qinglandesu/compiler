@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <cstring>
 #include "../include/AST.h"
 
 // 声明 lexer 函数和错误处理函数
@@ -42,8 +43,7 @@ using namespace std;
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt 
-%type <int_val> Number
+%type <ast_val> FuncDef FuncType Block Stmt Number
 
 %%
 
@@ -99,14 +99,16 @@ Block
 Stmt
   : RETURN Number ';' {
     auto stmt_ast = new StmtAST();
-    stmt_ast->number = $2;
+    stmt_ast->number = unique_ptr<BaseAST>($2);
     $$ = stmt_ast;
   }
   ;
 
 Number
   : INT_CONST {
-    $$ = $1;
+    auto number_ast = new NumberAST();
+    number_ast->num = $1;
+    $$ = number_ast;
   }
   ;
 
@@ -116,4 +118,15 @@ Number
 // parser 如果发生错误 (例如输入的程序出现了语法错误), 就会调用这个函数
 void yyerror(unique_ptr<BaseAST> &ast, const char *s) {
   cerr << "error: " << s << endl;
+    
+  extern int yylineno;    // defined and maintained in lex
+  extern char *yytext;    // defined and maintained in lex
+  int len=strlen(yytext);
+  int i;
+  char buf[512]={0};
+  for (i=0;i<len;++i)
+  {
+    sprintf(buf,"%s%d ",buf,yytext[i]);
+  }
+  fprintf(stderr, "ERROR: %s at symbol '%s' on line %d\n", s, buf, yylineno);
 }
