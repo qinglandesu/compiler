@@ -54,8 +54,27 @@ int main(int argc, const char *argv[])
   assert(!ret);
 
   fclose(yyin);
+  
+  if (string(mode) == "-ast")
+  {
+    if (string(option) == "-o")
+    {
+      ofstream outputFile(output);
+      assert(outputFile.is_open());
 
-  if (string(mode) == "-koopa")
+      streambuf *coutbuf = cout.rdbuf();
+      // 重定向标准输出到输出文件
+      cout.rdbuf(outputFile.rdbuf());
+
+      ast->Dump();
+
+      outputFile.flush();
+      outputFile.close();
+      // 恢复标准输出
+      cout.rdbuf(coutbuf);
+    }
+  }
+  else if (string(mode) == "-koopa")
   {
     if (string(option) == "-o")
     {
