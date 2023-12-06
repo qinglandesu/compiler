@@ -5,6 +5,7 @@
 #include <string>
 using namespace std;
 
+static int nowt = 0;
 /*
 
 CompUnit    ::= FuncDef;1
@@ -29,7 +30,7 @@ class BaseAST
 {
 public:
   virtual ~BaseAST() = default;
-
+  virtual bool isnum() const { return false; }
   virtual void Dump() const = 0;
   virtual void GenerateIR() const = 0;
 };
@@ -133,9 +134,8 @@ public:
   }
   void GenerateIR() const override
   {
-    std::cout << "  ret ";
     exp->GenerateIR();
-    std::cout << endl;
+    std::cout << "  ret %" << nowt - 1 << endl;
   }
 };
 
@@ -153,6 +153,7 @@ public:
   {
     std::cout << num;
   }
+  bool isnum() const override { return true; }
 };
 
 // Exp
@@ -172,6 +173,7 @@ public:
   {
     ue->GenerateIR();
   }
+  bool isnum() const override { return ue->isnum(); }
 };
 
 // PrimaryExp
@@ -191,6 +193,7 @@ public:
   {
     n_or_e->GenerateIR();
   }
+  bool isnum() const override { return n_or_e->isnum(); }
 };
 
 enum UnaryOp
@@ -232,6 +235,66 @@ public:
   }
   void GenerateIR() const override
   {
-    pe_or_uoue->GenerateIR();
+    switch (op)
+    {
+    case UOP_NONE:
+      pe_or_uoue->GenerateIR();
+      break;
+    case UOP_PLUS:
+      pe_or_uoue->GenerateIR();
+      break;
+    case UOP_MINUS:
+      if (pe_or_uoue->isnum())
+      {
+        std::cout << "  %" << nowt << " = sub 0 , ";
+        pe_or_uoue->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else
+      {
+        pe_or_uoue->GenerateIR();
+        std::cout << "  %" << nowt << " = sub 0 , %" << nowt - 1 << endl;
+        nowt++;
+      }
+      break;
+    case UOP_NOT:
+
+      if (pe_or_uoue->isnum())
+      {
+        std::cout << "  %" << nowt << " = eq 0 , ";
+        pe_or_uoue->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else
+      {
+        pe_or_uoue->GenerateIR();
+        std::cout << "  %" << nowt << " = eq 0 , %" << nowt - 1 << endl;
+        nowt++;
+      }
+      break;
+    default:
+      break;
+    }
+  }
+  bool isnum() const override
+  {
+    switch (op)
+    {
+    case UOP_NONE:
+      return pe_or_uoue->isnum();
+    case UOP_PLUS:
+      return false;
+      break;
+    case UOP_MINUS:
+      return false;
+      break;
+    case UOP_NOT:
+      return false;
+      break;
+    default:
+      break;
+    }
   }
 };
