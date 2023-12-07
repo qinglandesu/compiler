@@ -8,20 +8,22 @@ using namespace std;
 static int nowt = 0;
 /*
 
-CompUnit    ::= FuncDef;1
+CompUnit    ::= FuncDef;
 
-FuncDef     ::= FuncType IDENT "(" ")" Block;1
-FuncType    ::= "int";1
+FuncDef     ::= FuncType IDENT "(" ")" Block;
+FuncType    ::= "int";
 
-Block       ::= "{" Stmt "}";1
-Stmt        ::= "return" Exp ";";1
+Block       ::= "{" Stmt "}";
+Stmt        ::= "return" Exp ";";
 
-Exp         ::= UnaryExp;1
-PrimaryExp  ::= "(" Exp ")" | Number;1
-Number      ::= INT_CONST;1
+Exp         ::= AddExp;
+PrimaryExp  ::= "(" Exp ")" | Number;
+Number      ::= INT_CONST;
 UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp     ::= "+" | "-" | "!";
 
+MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
+AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
 
 */
 
@@ -161,19 +163,19 @@ class ExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> ue;
+  std::unique_ptr<BaseAST> ae;
 
   void Dump() const override
   {
     std::cout << "ExpAST { ";
-    ue->Dump();
+    ae->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    ue->GenerateIR();
+    ae->GenerateIR();
   }
-  bool isnum() const override { return ue->isnum(); }
+  bool isnum() const override { return ae->isnum(); }
 };
 
 // PrimaryExp
@@ -290,6 +292,162 @@ public:
       return false;
       break;
     case UOP_NOT:
+      return false;
+      break;
+    default:
+      break;
+    }
+  }
+};
+
+enum MulOp
+{
+  MOP_NONE,
+  MOP_MUL,
+  MOP_DIV,
+  MOP_MOD
+};
+// MulExp
+class MulExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ue, me;
+  MulOp op;
+
+  void Dump() const override
+  {
+    std::cout << "MulExpAST { ";
+    switch (op)
+    {
+    case MOP_NONE:
+      ue->Dump();
+      break;
+    case MOP_MUL:
+      me->Dump();
+      std::cout << " ,*, ";
+      ue->Dump();
+      break;
+    case MOP_DIV:
+      me->Dump();
+      std::cout << " ,/, ";
+      ue->Dump();
+      break;
+    case MOP_MOD:
+      me->Dump();
+      std::cout << " ,%, ";
+      ue->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    switch (op)
+    {
+    case MOP_NONE:
+      ue->GenerateIR();
+      break;
+    case MOP_MUL:
+
+      break;
+    case MOP_DIV:
+
+      break;
+    case MOP_MOD:
+
+      break;
+    default:
+      break;
+    }
+  }
+  bool isnum() const override
+  {
+    switch (op)
+    {
+    case MOP_NONE:
+      return ue->isnum();
+    case MOP_MUL:
+      return false;
+      break;
+    case MOP_DIV:
+      return false;
+      break;
+    case MOP_MOD:
+      return false;
+      break;
+    default:
+      break;
+    }
+  }
+};
+
+enum AddOp
+{
+  AOP_NONE,
+  AOP_PLUS,
+  AOP_MINUS,
+};
+// AddExp
+class AddExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> me, ae;
+  AddOp op;
+
+  void Dump() const override
+  {
+    std::cout << "AddExpAST { ";
+    switch (op)
+    {
+    case AOP_NONE:
+      me->Dump();
+      break;
+    case AOP_PLUS:
+      ae->Dump();
+      std::cout << " ,+, ";
+      me->Dump();
+      break;
+    case AOP_MINUS:
+      ae->Dump();
+      std::cout << " ,-, ";
+      me->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    switch (op)
+    {
+    case AOP_NONE:
+      me->GenerateIR();
+      break;
+    case AOP_PLUS:
+
+      break;
+    case AOP_MINUS:
+
+      break;
+    default:
+      break;
+    }
+  }
+  bool isnum() const override
+  {
+    switch (op)
+    {
+    case AOP_NONE:
+      return me->isnum();
+    case AOP_PLUS:
+      return false;
+      break;
+    case AOP_MINUS:
       return false;
       break;
     default:
