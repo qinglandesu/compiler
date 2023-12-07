@@ -259,18 +259,17 @@ public:
       }
       break;
     case UOP_NOT:
-
       if (pe_or_uoue->isnum())
       {
-        std::cout << "  %" << nowt << " = eq 0 , ";
+        std::cout << "  %" << nowt << " = eq ";
         pe_or_uoue->GenerateIR();
-        std::cout << endl;
+        std::cout << ", 0" << endl;
         nowt++;
       }
       else
       {
         pe_or_uoue->GenerateIR();
-        std::cout << "  %" << nowt << " = eq 0 , %" << nowt - 1 << endl;
+        std::cout << "  %" << nowt << " = eq %" << nowt - 1 << ", 0" << endl;
         nowt++;
       }
       break;

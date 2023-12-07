@@ -18,6 +18,7 @@ using namespace std;
 extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
+int nowr = 0; // 临时寄存器名
 int32_t tempval;
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program);
@@ -33,6 +34,8 @@ void Visit(const koopa_raw_value_t &value);
 void Visit(const koopa_raw_return_t &ret);
 // 访问integer
 void Visit(const koopa_raw_integer_t &integer);
+// 访问binary
+void Visit(const koopa_raw_binary_t &binary);
 
 int main(int argc, const char *argv[])
 {
@@ -54,7 +57,7 @@ int main(int argc, const char *argv[])
   assert(!ret);
 
   fclose(yyin);
-  
+
   if (string(mode) == "-ast")
   {
     if (string(option) == "-o")
@@ -231,6 +234,9 @@ void Visit(const koopa_raw_value_t &value)
     // 访问 integer 指令
     Visit(kind.data.integer);
     break;
+  case KOOPA_RVT_BINARY:
+    Visit(kind.data.binary);
+    break;
   default:
     // 其他类型暂时遇不到
     assert(false);
@@ -244,19 +250,58 @@ void Visit(const koopa_raw_return_t &ret)
   // 于是我们可以按照处理 return 指令的方式处理这个 value
   // return 指令中, value 代表返回值
   koopa_raw_value_t ret_value = ret.value;
-  // 示例程序中, ret_value 一定是一个 integer
-  // assert(ret_value->kind.tag == KOOPA_RVT_INTEGER);
-  // 于是我们可以按照处理 integer 的方式处理 ret_value
-  // integer 中, value 代表整数的数值
-  Visit(ret_value);
-  int32_t int_val = tempval;
-  // 示例程序中, 这个数值一定是 0
-  // assert(int_val == 0);
-  cout << " li a0, " << int_val << endl;
-  cout << " ret" << endl;
+  if (ret_value->kind.tag == KOOPA_RVT_INTEGER) // 按照处理 integer 的方式处理 ret_value
+  {
+    Visit(ret_value);
+    int32_t int_val = tempval;
+    cout << " li a0, " << int_val << endl;
+    cout << " ret" << endl;
+  }
+  else
+  {
+    cout << " mv a0, t" << nowr - 1 << endl;
+    cout << " ret" << endl;
+  }
 }
 // 访问integer
 void Visit(const koopa_raw_integer_t &integer)
 {
   tempval = integer.value;
+}
+// 访问binary
+void Visit(const koopa_raw_binary_t &binary)
+{
+  // 访问二元操作指令
+  auto lhs = binary.lhs;
+  auto rhs = binary.rhs;
+  // 根据操作符类型选择不同的操作
+  switch (binary.op)
+  {
+  case KOOPA_RBO_EQ:
+    // 处理等于操作
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      int l, r;
+      Visit(lhs);
+      l = tempval;
+      Visit(rhs);
+      r = tempval;
+      cout << " li t" << nowr << ", " << l << endl;
+      if (r == 0)
+        cout << " xor t" << nowr << ", t" << nowr << ", x0" << endl;
+      cout << " seqz t" << nowr << ", t" << nowr << endl;
+      nowr++;
+    }
+    break;
+  case KOOPA_RBO_SUB:
+    // 处理减法操作
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      if (tempval == 0)
+        cout << " sub t" << nowr << ", x0, t" << nowr - 1 << endl;
+      nowr++;
+    }
+    break;
+  }
 }
