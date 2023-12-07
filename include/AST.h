@@ -351,13 +351,112 @@ public:
       ue->GenerateIR();
       break;
     case MOP_MUL:
-
+      if (me->isnum() && ue->isnum())
+      {
+        std::cout << "  %" << nowt << " = mul ";
+        me->GenerateIR();
+        std::cout << ", ";
+        ue->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else if (me->isnum())
+      {
+        ue->GenerateIR();
+        std::cout << "  %" << nowt << " = mul ";
+        me->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else if (ue->isnum())
+      {
+        me->GenerateIR();
+        std::cout << "  %" << nowt << " = mul ";
+        ue->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else
+      {
+        me->GenerateIR();
+        int tempm = nowt - 1;
+        ue->GenerateIR();
+        int tempu = nowt - 1;
+        std::cout << "  %" << nowt << " = mul %" << tempm << ", %" << tempu << endl;
+        nowt++;
+      }
       break;
     case MOP_DIV:
-
+      if (me->isnum() && ue->isnum())
+      {
+        std::cout << "  %" << nowt << " = div ";
+        me->GenerateIR();
+        std::cout << ", ";
+        ue->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else if (me->isnum())
+      {
+        ue->GenerateIR();
+        std::cout << "  %" << nowt << " = div ";
+        me->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else if (ue->isnum())
+      {
+        me->GenerateIR();
+        std::cout << "  %" << nowt << " = div ";
+        ue->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else
+      {
+        me->GenerateIR();
+        int tempm = nowt - 1;
+        ue->GenerateIR();
+        int tempu = nowt - 1;
+        std::cout << "  %" << nowt << " = div %" << tempm << ", %" << tempu << endl;
+        nowt++;
+      }
       break;
     case MOP_MOD:
-
+      if (me->isnum() && ue->isnum())
+      {
+        std::cout << "  %" << nowt << " = mod ";
+        me->GenerateIR();
+        std::cout << ", ";
+        ue->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else if (me->isnum())
+      {
+        ue->GenerateIR();
+        std::cout << "  %" << nowt << " = mod ";
+        me->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else if (ue->isnum())
+      {
+        me->GenerateIR();
+        std::cout << "  %" << nowt << " = mod ";
+        ue->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else
+      {
+        me->GenerateIR();
+        int tempm = nowt - 1;
+        ue->GenerateIR();
+        int tempu = nowt - 1;
+        std::cout << "  %" << nowt << " = mod %" << tempm << ", %" << tempu << endl;
+        nowt++;
+      }
       break;
     default:
       break;
@@ -429,10 +528,76 @@ public:
       me->GenerateIR();
       break;
     case AOP_PLUS:
-
+if (me->isnum() && ae->isnum())
+      {
+        std::cout << "  %" << nowt << " = add ";
+        ae->GenerateIR();
+        std::cout << ", ";
+        me->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else if (me->isnum())
+      {
+        ae->GenerateIR();
+        std::cout << "  %" << nowt << " = add ";
+        me->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else if (ae->isnum())
+      {
+        me->GenerateIR();
+        std::cout << "  %" << nowt << " = add ";
+        ae->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else
+      {
+        ae->GenerateIR();
+        int tempm = nowt - 1;
+        me->GenerateIR();
+        int tempu = nowt - 1;
+        std::cout << "  %" << nowt << " = add %" << tempm << ", %" << tempu << endl;
+        nowt++;
+      }
       break;
     case AOP_MINUS:
-
+if (me->isnum() && ae->isnum())
+      {
+        std::cout << "  %" << nowt << " = sub ";
+        ae->GenerateIR();
+        std::cout << ", ";
+        me->GenerateIR();
+        std::cout << endl;
+        nowt++;
+      }
+      else if (me->isnum())
+      {
+        ae->GenerateIR();
+        std::cout << "  %" << nowt << " = sub ";
+        me->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else if (ae->isnum())
+      {
+        me->GenerateIR();
+        std::cout << "  %" << nowt << " = sub ";
+        ae->GenerateIR();
+        std::cout << ", %" << nowt - 1 << endl;
+        nowt++;
+      }
+      else
+      {
+        ae->GenerateIR();
+        int tempm = nowt - 1;
+        me->GenerateIR();
+        int tempu = nowt - 1;
+        std::cout << "  %" << nowt << " = sub %" << tempm << ", %" << tempu << endl;
+        nowt++;
+      }
       break;
     default:
       break;
