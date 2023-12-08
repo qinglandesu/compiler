@@ -136,8 +136,17 @@ public:
   }
   void GenerateIR() const override
   {
-    exp->GenerateIR();
-    std::cout << "  ret %" << nowt - 1 << endl;
+    if(exp->isnum())
+    {
+      std::cout << "  ret ";
+      exp->GenerateIR();
+      std::cout << endl;
+    }
+    else{
+      exp->GenerateIR();
+      std::cout << "  ret %" << nowt - 1 << endl;
+    }
+    
   }
 };
 
@@ -528,7 +537,7 @@ public:
       me->GenerateIR();
       break;
     case AOP_PLUS:
-if (me->isnum() && ae->isnum())
+      if (me->isnum() && ae->isnum())
       {
         std::cout << "  %" << nowt << " = add ";
         ae->GenerateIR();
@@ -564,7 +573,7 @@ if (me->isnum() && ae->isnum())
       }
       break;
     case AOP_MINUS:
-if (me->isnum() && ae->isnum())
+      if (me->isnum() && ae->isnum())
       {
         std::cout << "  %" << nowt << " = sub ";
         ae->GenerateIR();

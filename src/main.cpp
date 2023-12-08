@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <map>
 #include "koopa.h"
 #include "../include/AST.h"
 
@@ -18,8 +19,10 @@ using namespace std;
 extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
+int32_t tempnum;
 int nowr = 0; // 临时寄存器名
-int32_t tempval;
+map<koopa_raw_value_t, int> m;
+
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program);
 // 访问 raw slice
@@ -226,16 +229,15 @@ void Visit(const koopa_raw_value_t &value)
   const auto &kind = value->kind;
   switch (kind.tag)
   {
-  case KOOPA_RVT_RETURN:
-    // 访问 return 指令
+  case KOOPA_RVT_RETURN: // 访问 return 指令
     Visit(kind.data.ret);
     break;
-  case KOOPA_RVT_INTEGER:
-    // 访问 integer 指令
+  case KOOPA_RVT_INTEGER: // 访问 integer 指令
     Visit(kind.data.integer);
     break;
-  case KOOPA_RVT_BINARY:
+  case KOOPA_RVT_BINARY: // 访问 binary 指令
     Visit(kind.data.binary);
+    m[value] = nowr - 1;
     break;
   default:
     // 其他类型暂时遇不到
@@ -253,8 +255,7 @@ void Visit(const koopa_raw_return_t &ret)
   if (ret_value->kind.tag == KOOPA_RVT_INTEGER) // 按照处理 integer 的方式处理 ret_value
   {
     Visit(ret_value);
-    int32_t int_val = tempval;
-    cout << " li a0, " << int_val << endl;
+    cout << " li a0, " << tempnum << endl;
     cout << " ret" << endl;
   }
   else
@@ -263,45 +264,87 @@ void Visit(const koopa_raw_return_t &ret)
     cout << " ret" << endl;
   }
 }
+
 // 访问integer
 void Visit(const koopa_raw_integer_t &integer)
 {
-  tempval = integer.value;
+  tempnum = integer.value;
 }
+
 // 访问binary
 void Visit(const koopa_raw_binary_t &binary)
 {
-  // 访问二元操作指令
   auto lhs = binary.lhs;
   auto rhs = binary.rhs;
+  int l, r;
   // 根据操作符类型选择不同的操作
   switch (binary.op)
   {
-  case KOOPA_RBO_EQ:
-    // 处理等于操作
+  case KOOPA_RBO_EQ: // 处理等于操作
     if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
     {
-      int l, r;
       Visit(lhs);
-      l = tempval;
-      Visit(rhs);
-      r = tempval;
+      l = tempnum;
       cout << " li t" << nowr << ", " << l << endl;
-      if (r == 0)
-        cout << " xor t" << nowr << ", t" << nowr << ", x0" << endl;
-      cout << " seqz t" << nowr << ", t" << nowr << endl;
+      m[lhs] = nowr;
       nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      if (r == 0)
+      {
+        cout << " xor t" << m[lhs] << ", t" << m[lhs] << ", x0" << endl;
+        cout << " seqz t" << m[lhs] << ", t" << m[lhs] << endl;
+      }
+      else
+      {
+      }
     }
     break;
-  case KOOPA_RBO_SUB:
-    // 处理减法操作
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+  case KOOPA_RBO_SUB: // 处理减法操作
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
     {
       Visit(lhs);
-      if (tempval == 0)
-        cout << " sub t" << nowr << ", x0, t" << nowr - 1 << endl;
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
       nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " sub t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+      }
     }
+    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      if (l)
+      {
+        cout << " li t" << nowr << ", " << l << endl;
+        nowr++;
+        cout << " sub t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " sub t" << nowr << ", x0, t" << m[rhs] << endl;
+        nowr++;
+      }
+    }
+    break;
+  case KOOPA_RBO_ADD:
+    break;
+  case KOOPA_RBO_MUL:
+    break;
+  case KOOPA_RBO_DIV:
+    break;
+  case KOOPA_RBO_MOD:
+    break;
+  default:
     break;
   }
 }
