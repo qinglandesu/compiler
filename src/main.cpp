@@ -286,15 +286,14 @@ void Visit(const koopa_raw_binary_t &binary)
       Visit(lhs);
       l = tempnum;
       cout << " li t" << nowr << ", " << l << endl;
-      m[lhs] = nowr;
       nowr++;
 
       Visit(rhs);
       r = tempnum;
       if (r == 0)
       {
-        cout << " xor t" << m[lhs] << ", t" << m[lhs] << ", x0" << endl;
-        cout << " seqz t" << m[lhs] << ", t" << m[lhs] << endl;
+        cout << " xor t" << nowr - 1 << ", t" << nowr - 1 << ", x0" << endl;
+        cout << " seqz t" << nowr - 1 << ", t" << nowr - 1 << endl;
       }
       else
       {
@@ -316,6 +315,7 @@ void Visit(const koopa_raw_binary_t &binary)
         cout << " li t" << nowr << ", " << r << endl;
         nowr++;
         cout << " sub t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+        nowr++;
       }
     }
     else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
@@ -335,14 +335,271 @@ void Visit(const koopa_raw_binary_t &binary)
         nowr++;
       }
     }
+    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " sub t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " sub t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
+        nowr++;
+      }
+    }
+    else
+    {
+      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
+      nowr++;
+    }
     break;
   case KOOPA_RBO_ADD:
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
+      nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " add t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+        nowr++;
+      }
+    }
+    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      if (l)
+      {
+        cout << " li t" << nowr << ", " << l << endl;
+        nowr++;
+        cout << " add t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " add t" << nowr << ", x0, t" << m[rhs] << endl;
+        nowr++;
+      }
+    }
+    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " add t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " add t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
+        nowr++;
+      }
+    }
+    else
+    {
+      cout << " add t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
+      nowr++;
+    }
     break;
   case KOOPA_RBO_MUL:
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
+      nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+
+        cout << " mul t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " mul t" << nowr << ", t" << nowr - 1 << ", x0" << endl;
+        nowr++;
+      }
+    }
+    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      if (l)
+      {
+        cout << " li t" << nowr << ", " << l << endl;
+        nowr++;
+        cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " mul t" << nowr << ", x0, t" << m[rhs] << endl;
+        nowr++;
+      }
+    }
+    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " mul t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
+        nowr++;
+      }
+    }
+    else
+    {
+      cout << " mul t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
+      nowr++;
+    }
     break;
   case KOOPA_RBO_DIV:
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
+      nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " div t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " div t" << nowr << ", t" << nowr - 1 << ", x0" << endl;
+        nowr++;
+      }
+    }
+    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      if (l)
+      {
+        cout << " li t" << nowr << ", " << l << endl;
+        nowr++;
+        cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " div t" << nowr << ", x0, t" << m[rhs] << endl;
+        nowr++;
+      }
+    }
+    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(rhs);
+      r = tempnum;
+      if (r)
+      {
+        cout << " li t" << nowr << ", " << r << endl;
+        nowr++;
+        cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+        nowr++;
+      }
+      else
+      {
+        cout << " div t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
+        nowr++;
+      }
+    }
+    else
+    {
+      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
+      nowr++;
+    }
     break;
   case KOOPA_RBO_MOD:
+    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
+      nowr++;
+
+      Visit(rhs);
+      r = tempnum;
+      cout << " li t" << nowr << ", " << r << endl;
+      nowr++;
+
+      cout << " div t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
+      nowr++;
+      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << nowr - 2 << endl;
+      nowr++;
+      cout << " sub t" << nowr << ", t" << nowr - 4 << ", t" << nowr - 1 << endl;
+      nowr++;
+    }
+    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(lhs);
+      l = tempnum;
+      cout << " li t" << nowr << ", " << l << endl;
+      nowr++;
+
+      cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+      nowr++;
+      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+      nowr++;
+      cout << " sub t" << nowr << ", t" << nowr - 3 << ", t" << nowr - 1 << endl;
+      nowr++;
+    }
+    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+    {
+      Visit(rhs);
+      r = tempnum;
+      cout << " li t" << nowr << ", " << r << endl;
+      nowr++;
+
+      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
+      nowr++;
+      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << nowr - 2 << endl;
+      nowr++;
+      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
+      nowr++;
+    }
+    else
+    {
+      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
+      nowr++;
+      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
+      nowr++;
+      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
+      nowr++;
+    }
     break;
   default:
     break;
