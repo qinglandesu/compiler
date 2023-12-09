@@ -20,8 +20,10 @@ extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
 int32_t tempnum;
-int nowr = 0; // 临时寄存器名
+int nowr = 1; // 临时寄存器名
+string reg[10] = {"x0", "t0", "t1", "t2", "t3", "t4", "t5", "t6"};
 map<koopa_raw_value_t, int> m;
+void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr);
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program);
@@ -162,6 +164,41 @@ int main(int argc, const char *argv[])
   return 0;
 }
 
+void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
+{
+  if (lhs->kind.tag == KOOPA_RVT_INTEGER)
+  {
+    if (lhs->kind.data.integer.value == 0)
+      lr = 0;
+    else
+    {
+      cout << " li " << reg[nowr] << ", ";
+      Visit(lhs->kind.data.integer);
+      cout << tempnum << endl;
+      lr = nowr;
+      nowr++;
+    }
+  }
+  else
+    lr = m[lhs];
+
+  if (rhs->kind.tag == KOOPA_RVT_INTEGER)
+  {
+    if (rhs->kind.data.integer.value == 0)
+      rr = 0;
+    else
+    {
+      cout << " li " << reg[nowr] << ", ";
+      Visit(rhs->kind.data.integer);
+      cout << tempnum << endl;
+      rr = nowr;
+      nowr++;
+    }
+  }
+  else
+    rr = m[rhs];
+}
+
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program)
 {
@@ -260,7 +297,7 @@ void Visit(const koopa_raw_return_t &ret)
   }
   else
   {
-    cout << " mv a0, t" << nowr - 1 << endl;
+    cout << " mv a0, " << reg[nowr - 1] << endl;
     cout << " ret" << endl;
   }
 }
@@ -276,330 +313,48 @@ void Visit(const koopa_raw_binary_t &binary)
 {
   auto lhs = binary.lhs;
   auto rhs = binary.rhs;
-  int l, r;
+  int lr, rr;
   // 根据操作符类型选择不同的操作
   switch (binary.op)
   {
   case KOOPA_RBO_EQ: // 处理等于操作
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
+    getreg(lhs, rhs, lr, rr);
+    if (rr == 0)
     {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
+      cout << " xor " << reg[lr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+      cout << " seqz " << reg[lr] << ", " << reg[lr] << endl;
+    }
+    else
+    {
+      cout << " sub " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+      cout << " seqz " << reg[nowr] << ", " << reg[nowr] << endl;
       nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      if (r == 0)
-      {
-        cout << " xor t" << nowr - 1 << ", t" << nowr - 1 << ", x0" << endl;
-        cout << " seqz t" << nowr - 1 << ", t" << nowr - 1 << endl;
-      }
-      else
-      {
-      }
     }
     break;
   case KOOPA_RBO_SUB: // 处理减法操作
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " sub t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
-        nowr++;
-      }
-    }
-    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      if (l)
-      {
-        cout << " li t" << nowr << ", " << l << endl;
-        nowr++;
-        cout << " sub t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " sub t" << nowr << ", x0, t" << m[rhs] << endl;
-        nowr++;
-      }
-    }
-    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " sub t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " sub t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
-        nowr++;
-      }
-    }
-    else
-    {
-      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
-      nowr++;
-    }
+    getreg(lhs, rhs, lr, rr);
+    cout << " sub " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    nowr++;
     break;
   case KOOPA_RBO_ADD:
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " add t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
-        nowr++;
-      }
-    }
-    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      if (l)
-      {
-        cout << " li t" << nowr << ", " << l << endl;
-        nowr++;
-        cout << " add t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " add t" << nowr << ", x0, t" << m[rhs] << endl;
-        nowr++;
-      }
-    }
-    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " add t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " add t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
-        nowr++;
-      }
-    }
-    else
-    {
-      cout << " add t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
-      nowr++;
-    }
+    getreg(lhs, rhs, lr, rr);
+    cout << " add " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    nowr++;
     break;
   case KOOPA_RBO_MUL:
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-
-        cout << " mul t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " mul t" << nowr << ", t" << nowr - 1 << ", x0" << endl;
-        nowr++;
-      }
-    }
-    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      if (l)
-      {
-        cout << " li t" << nowr << ", " << l << endl;
-        nowr++;
-        cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " mul t" << nowr << ", x0, t" << m[rhs] << endl;
-        nowr++;
-      }
-    }
-    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " mul t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
-        nowr++;
-      }
-    }
-    else
-    {
-      cout << " mul t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
-      nowr++;
-    }
+    getreg(lhs, rhs, lr, rr);
+    cout << " mul " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    nowr++;
     break;
   case KOOPA_RBO_DIV:
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " div t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " div t" << nowr << ", t" << nowr - 1 << ", x0" << endl;
-        nowr++;
-      }
-    }
-    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      if (l)
-      {
-        cout << " li t" << nowr << ", " << l << endl;
-        nowr++;
-        cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " div t" << nowr << ", x0, t" << m[rhs] << endl;
-        nowr++;
-      }
-    }
-    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(rhs);
-      r = tempnum;
-      if (r)
-      {
-        cout << " li t" << nowr << ", " << r << endl;
-        nowr++;
-        cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-        nowr++;
-      }
-      else
-      {
-        cout << " div t" << nowr << ", t" << m[rhs] << " ,x0" << endl;
-        nowr++;
-      }
-    }
-    else
-    {
-      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
-      nowr++;
-    }
+    getreg(lhs, rhs, lr, rr);
+    cout << " div " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    nowr++;
     break;
   case KOOPA_RBO_MOD:
-    if (lhs->kind.tag == KOOPA_RVT_INTEGER && rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      Visit(rhs);
-      r = tempnum;
-      cout << " li t" << nowr << ", " << r << endl;
-      nowr++;
-
-      cout << " div t" << nowr << ", t" << nowr - 2 << ", t" << nowr - 1 << endl;
-      nowr++;
-      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << nowr - 2 << endl;
-      nowr++;
-      cout << " sub t" << nowr << ", t" << nowr - 4 << ", t" << nowr - 1 << endl;
-      nowr++;
-    }
-    else if (lhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(lhs);
-      l = tempnum;
-      cout << " li t" << nowr << ", " << l << endl;
-      nowr++;
-
-      cout << " div t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-      nowr++;
-      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-      nowr++;
-      cout << " sub t" << nowr << ", t" << nowr - 3 << ", t" << nowr - 1 << endl;
-      nowr++;
-    }
-    else if (rhs->kind.tag == KOOPA_RVT_INTEGER)
-    {
-      Visit(rhs);
-      r = tempnum;
-      cout << " li t" << nowr << ", " << r << endl;
-      nowr++;
-
-      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
-      nowr++;
-      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << nowr - 2 << endl;
-      nowr++;
-      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
-      nowr++;
-    }
-    else
-    {
-      cout << " div t" << nowr << ", t" << m[lhs] << ", t" << m[rhs] << endl;
-      nowr++;
-      cout << " mul t" << nowr << ", t" << nowr - 1 << ", t" << m[rhs] << endl;
-      nowr++;
-      cout << " sub t" << nowr << ", t" << m[lhs] << ", t" << nowr - 1 << endl;
-      nowr++;
-    }
+    getreg(lhs, rhs, lr, rr);
+    cout << " rem " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    nowr++;
     break;
   default:
     break;

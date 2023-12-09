@@ -16,7 +16,7 @@ FuncType    ::= "int";
 Block       ::= "{" Stmt "}";
 Stmt        ::= "return" Exp ";";
 
-Exp         ::= AddExp;
+Exp         ::= LOrExp;
 PrimaryExp  ::= "(" Exp ")" | Number;
 Number      ::= INT_CONST;
 UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
@@ -25,6 +25,10 @@ UnaryOp     ::= "+" | "-" | "!";
 MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
 AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
 
+RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
+LAndExp     ::= EqExp | LAndExp "&&" EqExp;
+LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
 */
 
 // 所有 AST 的基类
@@ -136,17 +140,17 @@ public:
   }
   void GenerateIR() const override
   {
-    if(exp->isnum())
+    if (exp->isnum())
     {
       std::cout << "  ret ";
       exp->GenerateIR();
       std::cout << endl;
     }
-    else{
+    else
+    {
       exp->GenerateIR();
       std::cout << "  ret %" << nowt - 1 << endl;
     }
-    
   }
 };
 
@@ -172,19 +176,19 @@ class ExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> ae;
+  std::unique_ptr<BaseAST> loe;
 
   void Dump() const override
   {
     std::cout << "ExpAST { ";
-    ae->Dump();
+    loe->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    ae->GenerateIR();
+    loe->GenerateIR();
   }
-  bool isnum() const override { return ae->isnum(); }
+  bool isnum() const override { return loe->isnum(); }
 };
 
 // PrimaryExp
@@ -207,12 +211,23 @@ public:
   bool isnum() const override { return n_or_e->isnum(); }
 };
 
-enum UnaryOp
+enum Op
 {
-  UOP_NONE,
-  UOP_PLUS,
-  UOP_MINUS,
-  UOP_NOT
+  NONE,
+  PLUS,
+  MINUS,
+  NOT,
+  MUL,
+  DIV,
+  MOD,
+  G_,
+  L_,
+  GEQ_,
+  LEQ_,
+  EQ_,
+  NEQ_,
+  LAND_,
+  LOR_
 };
 // UnaryExp
 class UnaryExpAST : public BaseAST
@@ -220,22 +235,22 @@ class UnaryExpAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> pe_or_uoue;
-  UnaryOp op;
+  Op op;
 
   void Dump() const override
   {
     std::cout << "UnaryExpAST { ";
     switch (op)
     {
-    case UOP_NONE:
+    case NONE:
       break;
-    case UOP_PLUS:
+    case PLUS:
       std::cout << "+, ";
       break;
-    case UOP_MINUS:
+    case MINUS:
       std::cout << "-, ";
       break;
-    case UOP_NOT:
+    case NOT:
       std::cout << "!, ";
       break;
     default:
@@ -248,13 +263,13 @@ public:
   {
     switch (op)
     {
-    case UOP_NONE:
+    case NONE:
       pe_or_uoue->GenerateIR();
       break;
-    case UOP_PLUS:
+    case PLUS:
       pe_or_uoue->GenerateIR();
       break;
-    case UOP_MINUS:
+    case MINUS:
       if (pe_or_uoue->isnum())
       {
         std::cout << "  %" << nowt << " = sub 0 , ";
@@ -269,7 +284,7 @@ public:
         nowt++;
       }
       break;
-    case UOP_NOT:
+    case NOT:
       if (pe_or_uoue->isnum())
       {
         std::cout << "  %" << nowt << " = eq ";
@@ -292,15 +307,11 @@ public:
   {
     switch (op)
     {
-    case UOP_NONE:
+    case NONE:
       return pe_or_uoue->isnum();
-    case UOP_PLUS:
-      return false;
-      break;
-    case UOP_MINUS:
-      return false;
-      break;
-    case UOP_NOT:
+    case PLUS:
+    case MINUS:
+    case NOT:
       return false;
       break;
     default:
@@ -309,40 +320,33 @@ public:
   }
 };
 
-enum MulOp
-{
-  MOP_NONE,
-  MOP_MUL,
-  MOP_DIV,
-  MOP_MOD
-};
 // MulExp
 class MulExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> ue, me;
-  MulOp op;
+  Op op;
 
   void Dump() const override
   {
     std::cout << "MulExpAST { ";
     switch (op)
     {
-    case MOP_NONE:
+    case NONE:
       ue->Dump();
       break;
-    case MOP_MUL:
+    case MUL:
       me->Dump();
       std::cout << " ,*, ";
       ue->Dump();
       break;
-    case MOP_DIV:
+    case DIV:
       me->Dump();
       std::cout << " ,/, ";
       ue->Dump();
       break;
-    case MOP_MOD:
+    case MOD:
       me->Dump();
       std::cout << " ,%, ";
       ue->Dump();
@@ -356,10 +360,10 @@ public:
   {
     switch (op)
     {
-    case MOP_NONE:
+    case NONE:
       ue->GenerateIR();
       break;
-    case MOP_MUL:
+    case MUL:
       if (me->isnum() && ue->isnum())
       {
         std::cout << "  %" << nowt << " = mul ";
@@ -395,7 +399,7 @@ public:
         nowt++;
       }
       break;
-    case MOP_DIV:
+    case DIV:
       if (me->isnum() && ue->isnum())
       {
         std::cout << "  %" << nowt << " = div ";
@@ -431,7 +435,7 @@ public:
         nowt++;
       }
       break;
-    case MOP_MOD:
+    case MOD:
       if (me->isnum() && ue->isnum())
       {
         std::cout << "  %" << nowt << " = mod ";
@@ -475,15 +479,11 @@ public:
   {
     switch (op)
     {
-    case MOP_NONE:
+    case NONE:
       return ue->isnum();
-    case MOP_MUL:
-      return false;
-      break;
-    case MOP_DIV:
-      return false;
-      break;
-    case MOP_MOD:
+    case MUL:
+    case DIV:
+    case MOD:
       return false;
       break;
     default:
@@ -492,34 +492,28 @@ public:
   }
 };
 
-enum AddOp
-{
-  AOP_NONE,
-  AOP_PLUS,
-  AOP_MINUS,
-};
 // AddExp
 class AddExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> me, ae;
-  AddOp op;
+  Op op;
 
   void Dump() const override
   {
     std::cout << "AddExpAST { ";
     switch (op)
     {
-    case AOP_NONE:
+    case NONE:
       me->Dump();
       break;
-    case AOP_PLUS:
+    case PLUS:
       ae->Dump();
       std::cout << " ,+, ";
       me->Dump();
       break;
-    case AOP_MINUS:
+    case MINUS:
       ae->Dump();
       std::cout << " ,-, ";
       me->Dump();
@@ -533,10 +527,10 @@ public:
   {
     switch (op)
     {
-    case AOP_NONE:
+    case NONE:
       me->GenerateIR();
       break;
-    case AOP_PLUS:
+    case PLUS:
       if (me->isnum() && ae->isnum())
       {
         std::cout << "  %" << nowt << " = add ";
@@ -572,7 +566,7 @@ public:
         nowt++;
       }
       break;
-    case AOP_MINUS:
+    case MINUS:
       if (me->isnum() && ae->isnum())
       {
         std::cout << "  %" << nowt << " = sub ";
@@ -616,16 +610,86 @@ public:
   {
     switch (op)
     {
-    case AOP_NONE:
+    case NONE:
       return me->isnum();
-    case AOP_PLUS:
-      return false;
-      break;
-    case AOP_MINUS:
+    case PLUS:
+    case MINUS:
       return false;
       break;
     default:
       break;
     }
+  }
+};
+
+// RelExp
+class RelExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ae, re;
+
+  void Dump() const override
+  {
+  }
+  void GenerateIR() const override
+  {
+  }
+  bool isnum() const override
+  {
+  }
+};
+
+// EqExp
+class EqExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> re, ee;
+
+  void Dump() const override
+  {
+  }
+  void GenerateIR() const override
+  {
+  }
+  bool isnum() const override
+  {
+  }
+};
+
+// LAndExp
+class LAndExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ee, lae;
+
+  void Dump() const override
+  {
+  }
+  void GenerateIR() const override
+  {
+  }
+  bool isnum() const override
+  {
+  }
+};
+
+// LOrExp
+class LOrExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> lae, loe;
+
+  void Dump() const override
+  {
+  }
+  void GenerateIR() const override
+  {
+  }
+  bool isnum() const override
+  {
   }
 };

@@ -38,12 +38,12 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN
+%token INT RETURN LOR LAND EQ NEQ GEQ LEQ
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp MulExp AddExp
+%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
 
@@ -113,9 +113,9 @@ Number
   ;
 
 Exp
-  :AddExp{
+  :LAndExp{
     auto ast = new ExpAST();
-    ast->ae = unique_ptr<BaseAST>($1);
+    ast->loe = unique_ptr<BaseAST>($1);
     $$=ast;
   }
 
@@ -135,25 +135,25 @@ PrimaryExp
 UnaryExp
   :PrimaryExp{
     auto ast = new UnaryExpAST();
-    ast->op = UOP_NONE;
+    ast->op = NONE;
     ast->pe_or_uoue = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   |'+' UnaryExp {
     auto ast = new UnaryExpAST();
-    ast->op = UOP_PLUS;
+    ast->op = PLUS;
     ast->pe_or_uoue = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   |'-' UnaryExp {
     auto ast = new UnaryExpAST();
-    ast->op = UOP_MINUS;
+    ast->op = MINUS;
     ast->pe_or_uoue = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   |'!' UnaryExp {
     auto ast = new UnaryExpAST();
-    ast->op = UOP_NOT;
+    ast->op = NOT;
     ast->pe_or_uoue = unique_ptr<BaseAST>($2);
     $$ = ast;
     }
@@ -162,27 +162,27 @@ UnaryExp
 MulExp
   :UnaryExp{
     auto ast = new MulExpAST();
-    ast->op = MOP_NONE;
+    ast->op = NONE;
     ast->ue = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   |MulExp '*' UnaryExp {
     auto ast = new MulExpAST();
-    ast->op = MOP_MUL;
+    ast->op = MUL;
     ast->me = unique_ptr<BaseAST>($1);
     ast->ue = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   |MulExp '/' UnaryExp {
     auto ast = new MulExpAST();
-    ast->op = MOP_DIV;
+    ast->op = DIV;
     ast->me = unique_ptr<BaseAST>($1);
     ast->ue = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   |MulExp '%' UnaryExp {
     auto ast = new MulExpAST();
-    ast->op = MOP_MOD;
+    ast->op = MOD;
     ast->me = unique_ptr<BaseAST>($1);
     ast->ue = unique_ptr<BaseAST>($3);
     $$ = ast;
@@ -192,25 +192,27 @@ MulExp
 AddExp
   :MulExp{
     auto ast = new AddExpAST();
-    ast->op = AOP_NONE;
+    ast->op = NONE;
     ast->me = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   |AddExp '+' MulExp {
     auto ast = new AddExpAST();
-    ast->op = AOP_PLUS;
+    ast->op = PLUS;
     ast->ae = unique_ptr<BaseAST>($1);
     ast->me = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   |AddExp '-' MulExp {
     auto ast = new AddExpAST();
-    ast->op = AOP_MINUS;
+    ast->op = MINUS;
     ast->ae = unique_ptr<BaseAST>($1);
     ast->me = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;
+
+
 
 
 %%
