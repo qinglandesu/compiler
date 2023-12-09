@@ -212,8 +212,97 @@ AddExp
   }
   ;
 
+RelExp
+  :AddExp{
+    auto ast = new RelExpAST();
+    ast->op = NONE;
+    ast->ae = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  |RelExp '<' AddExp {
+    auto ast = new RelExpAST();
+    ast->op = LT_;
+    ast->re = unique_ptr<BaseAST>($1);
+    ast->ae = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  |RelExp '>' AddExp {
+    auto ast = new RelExpAST();
+    ast->op = GT_;
+    ast->re = unique_ptr<BaseAST>($1);
+    ast->ae = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  |RelExp LEQ AddExp {
+    auto ast = new RelExpAST();
+    ast->op = LEQ_;
+    ast->re = unique_ptr<BaseAST>($1);
+    ast->ae = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  |RelExp GEQ AddExp {
+    auto ast = new RelExpAST();
+    ast->op = GEQ_;
+    ast->re = unique_ptr<BaseAST>($1);
+    ast->ae = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
 
+EqExp
+  :RelExp{
+    auto ast = new EqExpAST();
+    ast->op = NONE;
+    ast->re = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  |EqExp EQ RelExp {
+    auto ast = new EqExpAST();
+    ast->op = EQ_;
+    ast->ee = unique_ptr<BaseAST>($1);
+    ast->re = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  |EqExp NEQ RelExp {
+    auto ast = new EqExpAST();
+    ast->op = NEQ_;
+    ast->ee = unique_ptr<BaseAST>($1);
+    ast->re = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
 
+LAndExp
+  :EqExp{
+    auto ast = new LAndExpAST();
+    ast->op = NONE;
+    ast->ee = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  |LAndExp LAND EqExp {
+    auto ast = new LAndExpAST();
+    ast->op = LAND_;
+    ast->lae = unique_ptr<BaseAST>($1);
+    ast->ee = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+LOrExp
+  :LAndExp{
+    auto ast = new LOrExpAST();
+    ast->op = NONE;
+    ast->lae = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  |LOrExp LAND LAndExp {
+    auto ast = new LOrExpAST();
+    ast->op = LOR_;
+    ast->loe = unique_ptr<BaseAST>($1);
+    ast->lae = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
 
 %%
 

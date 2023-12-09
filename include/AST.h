@@ -220,8 +220,8 @@ enum Op
   MUL,
   DIV,
   MOD,
-  G_,
-  L_,
+  GT_,
+  LT_,
   GEQ_,
   LEQ_,
   EQ_,
@@ -315,6 +315,7 @@ public:
       return false;
       break;
     default:
+      return false;
       break;
     }
   }
@@ -487,6 +488,7 @@ public:
       return false;
       break;
     default:
+      return false;
       break;
     }
   }
@@ -617,6 +619,7 @@ public:
       return false;
       break;
     default:
+      return false;
       break;
     }
   }
@@ -628,15 +631,60 @@ class RelExpAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> ae, re;
+  Op op;
 
   void Dump() const override
   {
+    std::cout << "RelExpAST { ";
+    switch (op)
+    {
+    case NONE:
+      ae->Dump();
+      break;
+    case LT_:
+      re->Dump();
+      std::cout << " ,<, ";
+      ae->Dump();
+      break;
+    case GT_:
+      re->Dump();
+      std::cout << " ,>, ";
+      ae->Dump();
+      break;
+    case LEQ_:
+      re->Dump();
+      std::cout << " ,<=, ";
+      ae->Dump();
+      break;
+    case GEQ_:
+      re->Dump();
+      std::cout << " ,>=, ";
+      ae->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
   }
   void GenerateIR() const override
   {
   }
   bool isnum() const override
   {
+    switch (op)
+    {
+    case NONE:
+      return ae->isnum();
+    case LT_:
+    case GT_:
+    case LEQ_:
+    case GEQ_:
+      return false;
+      break;
+    default:
+      return false;
+      break;
+    }
   }
 };
 
@@ -646,15 +694,48 @@ class EqExpAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> re, ee;
+  Op op;
 
   void Dump() const override
   {
+    std::cout << "EqExpAST { ";
+    switch (op)
+    {
+    case NONE:
+      re->Dump();
+      break;
+    case EQ_:
+      ee->Dump();
+      std::cout << " ,==, ";
+      re->Dump();
+      break;
+    case NEQ_:
+      ee->Dump();
+      std::cout << " ,!=, ";
+      re->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
   }
   void GenerateIR() const override
   {
   }
   bool isnum() const override
   {
+    switch (op)
+    {
+    case NONE:
+      return re->isnum();
+    case EQ_:
+    case NEQ_:
+      return false;
+      break;
+    default:
+      return false;
+      break;
+    }
   }
 };
 
@@ -664,15 +745,42 @@ class LAndExpAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> ee, lae;
+  Op op;
 
   void Dump() const override
   {
+    std::cout << "LAndExpAST { ";
+    switch (op)
+    {
+    case NONE:
+      ee->Dump();
+      break;
+    case LAND_:
+      lae->Dump();
+      std::cout << " ,&&, ";
+      ee->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
   }
   void GenerateIR() const override
   {
   }
   bool isnum() const override
   {
+    switch (op)
+    {
+    case NONE:
+      return ee->isnum();
+    case LAND_:
+      return false;
+      break;
+    default:
+      return false;
+      break;
+    }
   }
 };
 
@@ -682,14 +790,41 @@ class LOrExpAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> lae, loe;
+  Op op;
 
   void Dump() const override
   {
+    std::cout << "LOrExpAST { ";
+    switch (op)
+    {
+    case NONE:
+      lae->Dump();
+      break;
+    case LAND_:
+      loe->Dump();
+      std::cout << " ,||, ";
+      lae->Dump();
+      break;
+    default:
+      break;
+    }
+    std::cout << " }";
   }
   void GenerateIR() const override
   {
   }
   bool isnum() const override
   {
+    switch (op)
+    {
+    case NONE:
+      return lae->isnum();
+    case LOR_:
+      return false;
+      break;
+    default:
+      return false;
+      break;
+    }
   }
 };
