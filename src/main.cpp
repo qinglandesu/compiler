@@ -21,6 +21,7 @@ extern int yyparse(unique_ptr<BaseAST> &ast);
 
 int32_t tempnum;
 int nowr = 1; // 临时寄存器名
+int dr = 1;
 string reg[20] = {"x0", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "a1", "a2", "a3", "a4", "a5", "a6"};
 map<koopa_raw_value_t, int> m;
 void getreg(const koopa_raw_value_t lhs, const koopa_raw_value_t rhs, int &lr, int &rr);
@@ -197,6 +198,20 @@ void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
   }
   else
     rr = m[rhs];
+
+  if (lr == 0 && rr == 0)
+  {
+    dr = nowr;
+    nowr++;
+  }
+  else if (lr == 0)
+  {
+    dr = rr;
+  }
+  else
+  {
+    dr = lr;
+  }
 }
 
 // 访问 raw program
@@ -274,7 +289,7 @@ void Visit(const koopa_raw_value_t &value)
     break;
   case KOOPA_RVT_BINARY: // 访问 binary 指令
     Visit(kind.data.binary);
-    m[value] = nowr - 1;
+    m[value] = dr;
     break;
   default:
     // 其他类型暂时遇不到
@@ -297,7 +312,7 @@ void Visit(const koopa_raw_return_t &ret)
   }
   else
   {
-    cout << " mv a0, " << reg[nowr - 1] << endl;
+    cout << " mv a0, " << reg[m[ret_value]] << endl;
     cout << " ret" << endl;
   }
 }
@@ -319,76 +334,63 @@ void Visit(const koopa_raw_binary_t &binary)
   {
   case KOOPA_RBO_SUB:
     getreg(lhs, rhs, lr, rr);
-    cout << " sub " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " sub " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_ADD:
     getreg(lhs, rhs, lr, rr);
-    cout << " add " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " add " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_MUL:
     getreg(lhs, rhs, lr, rr);
-    cout << " mul " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " mul " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_DIV:
     getreg(lhs, rhs, lr, rr);
-    cout << " div " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " div " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_MOD:
     getreg(lhs, rhs, lr, rr);
-    cout << " rem " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " rem " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_EQ:
     getreg(lhs, rhs, lr, rr);
-    cout << " xor " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    cout << " seqz " << reg[nowr] << ", " << reg[nowr] << endl;
-    nowr++;
+    cout << " xor " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    cout << " seqz " << reg[dr] << ", " << reg[dr] << endl;
     break;
   case KOOPA_RBO_NOT_EQ:
     getreg(lhs, rhs, lr, rr);
-    cout << " xor " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    cout << " snez " << reg[nowr] << ", " << reg[nowr] << endl;
-    nowr++;
+    cout << " xor " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    cout << " snez " << reg[dr] << ", " << reg[dr] << endl;
     break;
   case KOOPA_RBO_GT:
     getreg(lhs, rhs, lr, rr);
-    cout << " slt " << reg[nowr] << ", " << reg[rr] << ", " << reg[lr] << endl;
-    nowr++;
+    cout << " slt " << reg[dr] << ", " << reg[rr] << ", " << reg[lr] << endl;
     break;
   case KOOPA_RBO_LT:
     getreg(lhs, rhs, lr, rr);
-    cout << " slt " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " slt " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_GE:
     getreg(lhs, rhs, lr, rr);
-    cout << " slt " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    cout << " xori " << reg[nowr] << ", " << reg[nowr] << ", "
+    cout << " slt " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    cout << " xori " << reg[dr] << ", " << reg[dr] << ", "
          << "1" << endl;
-    nowr++;
     break;
   case KOOPA_RBO_LE:
     getreg(lhs, rhs, lr, rr);
-    cout << " slt " << reg[nowr] << ", " << reg[rr] << ", " << reg[lr] << endl;
-    cout << " xori " << reg[nowr] << ", " << reg[nowr] << ", 1" << endl;
-    nowr++;
+    cout << " slt " << reg[dr] << ", " << reg[rr] << ", " << reg[lr] << endl;
+    cout << " xori " << reg[dr] << ", " << reg[dr] << ", 1" << endl;
     break;
   case KOOPA_RBO_AND:
     getreg(lhs, rhs, lr, rr);
     cout << " snez " << reg[lr] << ", " << reg[lr] << endl;
     cout << " snez " << reg[rr] << ", " << reg[rr] << endl;
-    cout << " and " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    nowr++;
+    cout << " and " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_OR:
     getreg(lhs, rhs, lr, rr);
-    cout << " or " << reg[nowr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    cout << " snez " << reg[nowr] << ", " << reg[nowr] << endl;
-    nowr++;
+    cout << " or " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
+    cout << " snez " << reg[dr] << ", " << reg[dr] << endl;
     break;
   default:
     break;
