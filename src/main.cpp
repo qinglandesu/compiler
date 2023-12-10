@@ -23,7 +23,7 @@ int32_t tempnum;
 int nowr = 1; // 临时寄存器名
 string reg[10] = {"x0", "t0", "t1", "t2", "t3", "t4", "t5", "t6"};
 map<koopa_raw_value_t, int> m;
-void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr);
+void getreg(const koopa_raw_value_t lhs, const koopa_raw_value_t rhs, int &lr, int &rr);
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program);

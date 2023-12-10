@@ -5,7 +5,7 @@
 #include <string>
 using namespace std;
 
-static int nowt = 0;
+static int now_ = 0;
 /*
 
 CompUnit    ::= FuncDef;
@@ -40,6 +40,44 @@ public:
   virtual void Dump() const = 0;
   virtual void GenerateIR() const = 0;
 };
+
+static void cal(const std::unique_ptr<BaseAST> &l, const std::unique_ptr<BaseAST> &r, string op_)
+{
+  if (l->isnum() && r->isnum())
+  {
+    std::cout << "  %" << now_ << " = " + op_ + " ";
+    l->GenerateIR();
+    std::cout << ", ";
+    r->GenerateIR();
+    std::cout << endl;
+    now_++;
+  }
+  else if (l->isnum())
+  {
+    r->GenerateIR();
+    std::cout << "  %" << now_ << " = " + op_ + " ";
+    l->GenerateIR();
+    std::cout << ", %" << now_ - 1 << endl;
+    now_++;
+  }
+  else if (r->isnum())
+  {
+    l->GenerateIR();
+    std::cout << "  %" << now_ << " = " + op_ + " %" << now_ - 1 << ", ";
+    r->GenerateIR();
+    std::cout << endl;
+    now_++;
+  }
+  else
+  {
+    l->GenerateIR();
+    int tempm = now_ - 1;
+    r->GenerateIR();
+    int tempu = now_ - 1;
+    std::cout << "  %" << now_ << " = " + op_ + " %" << tempm << ", %" << tempu << endl;
+    now_++;
+  }
+}
 
 // CompUnit 是 BaseAST
 class CompUnitAST : public BaseAST
@@ -149,7 +187,7 @@ public:
     else
     {
       exp->GenerateIR();
-      std::cout << "  ret %" << nowt - 1 << endl;
+      std::cout << "  ret %" << now_ - 1 << endl;
     }
   }
 };
@@ -272,31 +310,31 @@ public:
     case MINUS:
       if (pe_or_uoue->isnum())
       {
-        std::cout << "  %" << nowt << " = sub 0 , ";
+        std::cout << "  %" << now_ << " = sub 0 , ";
         pe_or_uoue->GenerateIR();
         std::cout << endl;
-        nowt++;
+        now_++;
       }
       else
       {
         pe_or_uoue->GenerateIR();
-        std::cout << "  %" << nowt << " = sub 0 , %" << nowt - 1 << endl;
-        nowt++;
+        std::cout << "  %" << now_ << " = sub 0 , %" << now_ - 1 << endl;
+        now_++;
       }
       break;
     case NOT:
       if (pe_or_uoue->isnum())
       {
-        std::cout << "  %" << nowt << " = eq ";
+        std::cout << "  %" << now_ << " = eq ";
         pe_or_uoue->GenerateIR();
         std::cout << ", 0" << endl;
-        nowt++;
+        now_++;
       }
       else
       {
         pe_or_uoue->GenerateIR();
-        std::cout << "  %" << nowt << " = eq %" << nowt - 1 << ", 0" << endl;
-        nowt++;
+        std::cout << "  %" << now_ << " = eq %" << now_ - 1 << ", 0" << endl;
+        now_++;
       }
       break;
     default:
@@ -365,112 +403,13 @@ public:
       ue->GenerateIR();
       break;
     case MUL:
-      if (me->isnum() && ue->isnum())
-      {
-        std::cout << "  %" << nowt << " = mul ";
-        me->GenerateIR();
-        std::cout << ", ";
-        ue->GenerateIR();
-        std::cout << endl;
-        nowt++;
-      }
-      else if (me->isnum())
-      {
-        ue->GenerateIR();
-        std::cout << "  %" << nowt << " = mul ";
-        me->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else if (ue->isnum())
-      {
-        me->GenerateIR();
-        std::cout << "  %" << nowt << " = mul ";
-        ue->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else
-      {
-        me->GenerateIR();
-        int tempm = nowt - 1;
-        ue->GenerateIR();
-        int tempu = nowt - 1;
-        std::cout << "  %" << nowt << " = mul %" << tempm << ", %" << tempu << endl;
-        nowt++;
-      }
+      cal(me, ue, "mul");
       break;
     case DIV:
-      if (me->isnum() && ue->isnum())
-      {
-        std::cout << "  %" << nowt << " = div ";
-        me->GenerateIR();
-        std::cout << ", ";
-        ue->GenerateIR();
-        std::cout << endl;
-        nowt++;
-      }
-      else if (me->isnum())
-      {
-        ue->GenerateIR();
-        std::cout << "  %" << nowt << " = div ";
-        me->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else if (ue->isnum())
-      {
-        me->GenerateIR();
-        std::cout << "  %" << nowt << " = div ";
-        ue->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else
-      {
-        me->GenerateIR();
-        int tempm = nowt - 1;
-        ue->GenerateIR();
-        int tempu = nowt - 1;
-        std::cout << "  %" << nowt << " = div %" << tempm << ", %" << tempu << endl;
-        nowt++;
-      }
+      cal(me, ue, "div");
       break;
     case MOD:
-      if (me->isnum() && ue->isnum())
-      {
-        std::cout << "  %" << nowt << " = mod ";
-        me->GenerateIR();
-        std::cout << ", ";
-        ue->GenerateIR();
-        std::cout << endl;
-        nowt++;
-      }
-      else if (me->isnum())
-      {
-        ue->GenerateIR();
-        std::cout << "  %" << nowt << " = mod ";
-        me->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else if (ue->isnum())
-      {
-        me->GenerateIR();
-        std::cout << "  %" << nowt << " = mod ";
-        ue->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else
-      {
-        me->GenerateIR();
-        int tempm = nowt - 1;
-        ue->GenerateIR();
-        int tempu = nowt - 1;
-        std::cout << "  %" << nowt << " = mod %" << tempm << ", %" << tempu << endl;
-        nowt++;
-      }
+      cal(me, ue, "mod");
       break;
     default:
       break;
@@ -533,76 +472,10 @@ public:
       me->GenerateIR();
       break;
     case PLUS:
-      if (me->isnum() && ae->isnum())
-      {
-        std::cout << "  %" << nowt << " = add ";
-        ae->GenerateIR();
-        std::cout << ", ";
-        me->GenerateIR();
-        std::cout << endl;
-        nowt++;
-      }
-      else if (me->isnum())
-      {
-        ae->GenerateIR();
-        std::cout << "  %" << nowt << " = add ";
-        me->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else if (ae->isnum())
-      {
-        me->GenerateIR();
-        std::cout << "  %" << nowt << " = add ";
-        ae->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else
-      {
-        ae->GenerateIR();
-        int tempm = nowt - 1;
-        me->GenerateIR();
-        int tempu = nowt - 1;
-        std::cout << "  %" << nowt << " = add %" << tempm << ", %" << tempu << endl;
-        nowt++;
-      }
+      cal(ae, me, "add");
       break;
     case MINUS:
-      if (me->isnum() && ae->isnum())
-      {
-        std::cout << "  %" << nowt << " = sub ";
-        ae->GenerateIR();
-        std::cout << ", ";
-        me->GenerateIR();
-        std::cout << endl;
-        nowt++;
-      }
-      else if (me->isnum())
-      {
-        ae->GenerateIR();
-        std::cout << "  %" << nowt << " = sub ";
-        me->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else if (ae->isnum())
-      {
-        me->GenerateIR();
-        std::cout << "  %" << nowt << " = sub ";
-        ae->GenerateIR();
-        std::cout << ", %" << nowt - 1 << endl;
-        nowt++;
-      }
-      else
-      {
-        ae->GenerateIR();
-        int tempm = nowt - 1;
-        me->GenerateIR();
-        int tempu = nowt - 1;
-        std::cout << "  %" << nowt << " = sub %" << tempm << ", %" << tempu << endl;
-        nowt++;
-      }
+      cal(ae, me, "sub");
       break;
     default:
       break;
@@ -668,6 +541,26 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (op)
+    {
+    case NONE:
+      ae->GenerateIR();
+      break;
+    case LT_:
+      cal(re, ae, "lt");
+      break;
+    case GT_:
+      cal(re, ae, "gt");
+      break;
+    case LEQ_:
+      cal(re, ae, "le");
+      break;
+    case GEQ_:
+      cal(re, ae, "ge");
+      break;
+    default:
+      break;
+    }
   }
   bool isnum() const override
   {
@@ -721,6 +614,20 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (op)
+    {
+    case NONE:
+      re->GenerateIR();
+      break;
+    case EQ_:
+      cal(ee, re, "eq");
+      break;
+    case NEQ_:
+      cal(ee, re, "ne");
+      break;
+    default:
+      break;
+    }
   }
   bool isnum() const override
   {
@@ -767,6 +674,17 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (op)
+    {
+    case NONE:
+      ee->GenerateIR();
+      break;
+    case LAND_:
+      cal(lae, ee, "and");
+      break;
+    default:
+      break;
+    }
   }
   bool isnum() const override
   {
@@ -800,7 +718,7 @@ public:
     case NONE:
       lae->Dump();
       break;
-    case LAND_:
+    case LOR_:
       loe->Dump();
       std::cout << " ,||, ";
       lae->Dump();
@@ -812,6 +730,17 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (op)
+    {
+    case NONE:
+      lae->GenerateIR();
+      break;
+    case LOR_:
+      cal(loe, lae, "or");
+      break;
+    default:
+      break;
+    }
   }
   bool isnum() const override
   {

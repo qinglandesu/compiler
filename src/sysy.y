@@ -113,7 +113,7 @@ Number
   ;
 
 Exp
-  :LAndExp{
+  :LOrExp{
     auto ast = new ExpAST();
     ast->loe = unique_ptr<BaseAST>($1);
     $$=ast;
@@ -295,7 +295,7 @@ LOrExp
     ast->lae = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |LOrExp LAND LAndExp {
+  |LOrExp LOR LAndExp {
     auto ast = new LOrExpAST();
     ast->op = LOR_;
     ast->loe = unique_ptr<BaseAST>($1);
