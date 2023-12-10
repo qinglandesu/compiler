@@ -348,6 +348,7 @@ public:
     case NONE:
       return pe_or_uoue->isnum();
     case PLUS:
+      return pe_or_uoue->isnum();
     case MINUS:
     case NOT:
       return false;
@@ -680,7 +681,57 @@ public:
       ee->GenerateIR();
       break;
     case LAND_:
-      cal(lae, ee, "and");
+      if (ee->isnum() && lae->isnum())
+      {
+        std::cout << "  %" << now_ << " = ne ";
+        lae->GenerateIR();
+        std::cout << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne ";
+        lae->GenerateIR();
+        std::cout << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = and %" << now_ - 2 << ", %" << now_ - 1 << endl;
+        now_++;
+      }
+      else if (lae->isnum())
+      {
+        std::cout << "  %" << now_ << " = ne ";
+        lae->GenerateIR();
+        std::cout << ", 0" << endl;
+        int tempnow_ = now_;
+        now_++;
+        ee->GenerateIR();
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = and %" << tempnow_ << ", %" << now_ - 1 << endl;
+        now_++;
+      }
+      else if (ee->isnum())
+      {
+        lae->GenerateIR();
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne ";
+        ee->GenerateIR();
+        std::cout << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = and %" << now_ - 2 << ", %" << now_ - 1 << endl;
+        now_++;
+      }
+      else
+      {
+        lae->GenerateIR();
+        int templ = now_ - 1;
+        ee->GenerateIR();
+        int tempr = now_ - 1;
+        std::cout << "  %" << now_ << " = ne %" << templ << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne %" << tempr << ", 0" << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = and %" << now_ - 2 << ", %" << now_ - 1 << endl;
+        now_++;
+      }
       break;
     default:
       break;
@@ -736,7 +787,48 @@ public:
       lae->GenerateIR();
       break;
     case LOR_:
-      cal(loe, lae, "or");
+      if (loe->isnum() && lae->isnum())
+      {
+        std::cout << "  %" << now_ << " = or ";
+        loe->GenerateIR();
+        std::cout << ", ";
+        lae->GenerateIR();
+        std::cout << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+      }
+      else if (loe->isnum())
+      {
+        lae->GenerateIR();
+        std::cout << "  %" << now_ << " = or ";
+        loe->GenerateIR();
+        std::cout << ", %" << now_ - 1 << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+      }
+      else if (lae->isnum())
+      {
+        loe->GenerateIR();
+        std::cout << "  %" << now_ << " = or %" << now_ - 1 << ", ";
+        lae->GenerateIR();
+        std::cout << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+      }
+      else
+      {
+        loe->GenerateIR();
+        int templ = now_ - 1;
+        lae->GenerateIR();
+        int tempr = now_ - 1;
+        std::cout << "  %" << now_ << " = or %" << templ << ", %" << tempr << endl;
+        now_++;
+        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        now_++;
+      }
       break;
     default:
       break;
