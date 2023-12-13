@@ -38,12 +38,14 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN LOR LAND EQ NEQ GEQ LEQ
+%token INT RETURN CONST LOR LAND EQ NEQ GEQ LEQ
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <ast_val> FuncDef FuncType Block BType BlockItems BlockItem Stmt 
+                Decl ConstDecl ConstDefList ConstDef ConstInitVal 
+                LVal Number ConstExp Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
 
@@ -88,11 +90,101 @@ FuncType
   }
   ;
 
-Block
-  : '{' Stmt '}' {
-    auto ast = new BlockAST();
-    ast->stmt = unique_ptr<BaseAST>($2);
+Decl
+  : ConstDecl {
+    auto ast = new DeclAST();
+    ast->cd = unique_ptr<BaseAST>($1);
     $$ = ast;
+  }
+  ;
+
+ConstDecl
+  : CONST BType ConstDefList ';'{
+    auto ast = new ConstDeclAST();
+    ast->bt = unique_ptr<BaseAST>($2);
+    ast->cdl = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+BType
+  : INT {
+    auto ast = new BTypeAST();
+    ast->type = "int";
+    $$ = ast;
+  }
+  ;
+
+ConstDefList
+ : ConstDef {
+    auto ast = new ConstDefListAST();
+    ast->AddConstDef(unique_ptr<BaseAST>($1));
+    $$ = ast;
+ }
+ | ConstDefList ',' ConstDef {
+    dynamic_cast<ConstDefListAST*>($1)->AddConstDef(unique_ptr<BaseAST>($3));
+    $$ = $1;
+ }
+ ;
+
+ConstDef
+  : IDENT '=' ConstInitVal {
+    auto ast = new ConstDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->civ = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+ConstInitVal
+  : ConstExp {
+    auto ast = new ConstInitValAST();
+    ast->ce = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+Block
+  : '{' BlockItems '}' {
+    auto ast = new BlockAST();
+    ast->bi = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+BlockItems
+  : BlockItem {
+    auto ast = new BlockItemsAST();
+    ast->s = false;
+    ast->bi = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | BlockItems BlockItem {
+    auto ast = new BlockItemsAST();
+    ast->s = true;
+    ast->bis = unique_ptr<BaseAST>($1);
+    ast->bi = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+
+BlockItem
+  : Decl {
+    auto ast = new BlockItemAST();
+    ast->ds = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | Stmt {
+    auto ast = new BlockItemAST();
+    ast->ds = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+LVal
+  : IDENT {
+    auto ast = new LValAST();
+    ast->ident = *unique_ptr<string>($1);
+    $$=ast;
   }
   ;
 
@@ -119,21 +211,34 @@ Exp
     $$=ast;
   }
 
+ConstExp
+ : Exp {
+    auto ast = new ConstExpAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$=ast;
+ }
+ ;
+
 PrimaryExp
   :'(' Exp ')'{
     auto ast = new PrimaryExpAST();
-    ast->n_or_e = unique_ptr<BaseAST>($2);
+    ast->eln = unique_ptr<BaseAST>($2);
     $$=ast;
   }
-  |Number {
+  | LVal {
+    auto ast = new PrimaryExpAST();
+    ast->eln = unique_ptr<BaseAST>($1);
+    $$=ast;
+  }
+  | Number {
     auto ast=new PrimaryExpAST();
-    ast->n_or_e = unique_ptr<BaseAST>($1);
+    ast->eln = unique_ptr<BaseAST>($1);
     $$=ast;
   }
   ;
 
 UnaryExp
-  :PrimaryExp{
+  : PrimaryExp {
     auto ast = new UnaryExpAST();
     ast->op = NONE;
     ast->pe_or_uoue = unique_ptr<BaseAST>($1);
@@ -160,27 +265,27 @@ UnaryExp
   ;
 
 MulExp
-  :UnaryExp{
+  : UnaryExp {
     auto ast = new MulExpAST();
     ast->op = NONE;
     ast->ue = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |MulExp '*' UnaryExp {
+  | MulExp '*' UnaryExp {
     auto ast = new MulExpAST();
     ast->op = MUL;
     ast->me = unique_ptr<BaseAST>($1);
     ast->ue = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |MulExp '/' UnaryExp {
+  | MulExp '/' UnaryExp {
     auto ast = new MulExpAST();
     ast->op = DIV;
     ast->me = unique_ptr<BaseAST>($1);
     ast->ue = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |MulExp '%' UnaryExp {
+  | MulExp '%' UnaryExp {
     auto ast = new MulExpAST();
     ast->op = MOD;
     ast->me = unique_ptr<BaseAST>($1);
@@ -190,20 +295,20 @@ MulExp
   ;
 
 AddExp
-  :MulExp{
+  : MulExp {
     auto ast = new AddExpAST();
     ast->op = NONE;
     ast->me = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |AddExp '+' MulExp {
+  | AddExp '+' MulExp {
     auto ast = new AddExpAST();
     ast->op = PLUS;
     ast->ae = unique_ptr<BaseAST>($1);
     ast->me = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |AddExp '-' MulExp {
+  | AddExp '-' MulExp {
     auto ast = new AddExpAST();
     ast->op = MINUS;
     ast->ae = unique_ptr<BaseAST>($1);
@@ -213,34 +318,34 @@ AddExp
   ;
 
 RelExp
-  :AddExp{
+  : AddExp {
     auto ast = new RelExpAST();
     ast->op = NONE;
     ast->ae = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |RelExp '<' AddExp {
+  | RelExp '<' AddExp {
     auto ast = new RelExpAST();
     ast->op = LT_;
     ast->re = unique_ptr<BaseAST>($1);
     ast->ae = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |RelExp '>' AddExp {
+  | RelExp '>' AddExp {
     auto ast = new RelExpAST();
     ast->op = GT_;
     ast->re = unique_ptr<BaseAST>($1);
     ast->ae = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |RelExp LEQ AddExp {
+  | RelExp LEQ AddExp {
     auto ast = new RelExpAST();
     ast->op = LEQ_;
     ast->re = unique_ptr<BaseAST>($1);
     ast->ae = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |RelExp GEQ AddExp {
+  | RelExp GEQ AddExp {
     auto ast = new RelExpAST();
     ast->op = GEQ_;
     ast->re = unique_ptr<BaseAST>($1);
@@ -250,20 +355,20 @@ RelExp
   ;
 
 EqExp
-  :RelExp{
+  : RelExp {
     auto ast = new EqExpAST();
     ast->op = NONE;
     ast->re = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |EqExp EQ RelExp {
+  | EqExp EQ RelExp {
     auto ast = new EqExpAST();
     ast->op = EQ_;
     ast->ee = unique_ptr<BaseAST>($1);
     ast->re = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
-  |EqExp NEQ RelExp {
+  | EqExp NEQ RelExp {
     auto ast = new EqExpAST();
     ast->op = NEQ_;
     ast->ee = unique_ptr<BaseAST>($1);
@@ -273,13 +378,13 @@ EqExp
   ;
 
 LAndExp
-  :EqExp{
+  : EqExp {
     auto ast = new LAndExpAST();
     ast->op = NONE;
     ast->ee = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |LAndExp LAND EqExp {
+  | LAndExp LAND EqExp {
     auto ast = new LAndExpAST();
     ast->op = LAND_;
     ast->lae = unique_ptr<BaseAST>($1);
@@ -289,13 +394,13 @@ LAndExp
   ;
 
 LOrExp
-  :LAndExp{
+  : LAndExp {
     auto ast = new LOrExpAST();
     ast->op = NONE;
     ast->lae = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |LOrExp LOR LAndExp {
+  | LOrExp LOR LAndExp {
     auto ast = new LOrExpAST();
     ast->op = LOR_;
     ast->loe = unique_ptr<BaseAST>($1);

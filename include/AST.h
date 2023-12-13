@@ -3,28 +3,37 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 using namespace std;
 
 static int now_ = 0;
+
 /*
 
 CompUnit    ::= FuncDef;
 
+Decl          ::= ConstDecl;
+ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";";
+BType         ::= "int";
+ConstDef      ::= IDENT "=" ConstInitVal;
+ConstInitVal  ::= ConstExp;
+
 FuncDef     ::= FuncType IDENT "(" ")" Block;
 FuncType    ::= "int";
 
-Block       ::= "{" Stmt "}";
+Block         ::= "{" {BlockItem} "}";
+BlockItem     ::= Decl | Stmt;
 Stmt        ::= "return" Exp ";";
 
+LVal          ::= IDENT;
+ConstExp      ::= Exp;
 Exp         ::= LOrExp;
-PrimaryExp  ::= "(" Exp ")" | Number;
+PrimaryExp    ::= "(" Exp ")" | LVal | Number;
 Number      ::= INT_CONST;
 UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp     ::= "+" | "-" | "!";
-
 MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
 AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
-
 RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
 EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
 LAndExp     ::= EqExp | LAndExp "&&" EqExp;
@@ -41,7 +50,7 @@ public:
   virtual void GenerateIR() const = 0;
 };
 
-static void cal(const std::unique_ptr<BaseAST> &l, const std::unique_ptr<BaseAST> &r, string op_)
+static void printcalc(const std::unique_ptr<BaseAST> &l, const std::unique_ptr<BaseAST> &r, string op_)
 {
   if (l->isnum() && r->isnum())
   {
@@ -142,16 +151,133 @@ public:
   }
 };
 
+// Decl
+class DeclAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> cd;
+
+  void Dump() const override
+  {
+    std::cout << "DeclAST { ";
+    cd->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    cd->GenerateIR();
+  }
+};
+
+// ConstDecl
+class ConstDeclAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> bt, cdl;
+
+  void Dump() const override
+  {
+    std::cout << "ConstDeclAST { ";
+    bt->Dump();
+    std::cout << " , ";
+    cdl->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// BType
+class BTypeAST : public BaseAST
+{
+public:
+  std::string type;
+
+  void Dump() const override
+  {
+    std::cout << "BTypeAST { " << type << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ConstDefList
+class ConstDefListAST : public BaseAST
+{
+public:
+  std::vector<std::unique_ptr<BaseAST>> constdeflist;
+
+  void AddConstDef(std::unique_ptr<BaseAST> &&cd)
+  {
+    constdeflist.push_back(std::move(cd));
+  }
+  void Dump() const override
+  {
+    std::cout << "ConstDefListAST { ";
+    for (const auto &def : constdeflist)
+    {
+      if (def) // 确保指针非空
+        def->Dump();
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ConstDef
+class ConstDefAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> civ;
+  std::string ident;
+
+  void Dump() const override
+  {
+    std::cout << "ConstDefAST { ";
+    std::cout << ", " << ident << ", ";
+    civ->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ConstInitVal
+class ConstInitValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ce;
+
+  void Dump() const override
+  {
+    std::cout << "ConstInitValAST { ";
+    ce->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
 // Block 也是 BaseAST
 class BlockAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> stmt;
+  std::unique_ptr<BaseAST> bi;
 
   void Dump() const override
   {
     std::cout << "BlockAST { ";
-    stmt->Dump();
+    bi->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
@@ -159,9 +285,67 @@ public:
     std::cout << "{" << endl;
     std::cout << "%"
               << "entry:" << endl;
-    stmt->GenerateIR();
+    bi->GenerateIR();
     std::cout << "}";
   }
+};
+
+// BlockItems
+class BlockItemsAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> bis, bi;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "BlockItemsAST { ";
+    if (s)
+      bis->Dump();
+    bi->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// BlockItem
+class BlockItemAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ds;
+
+  void Dump() const override
+  {
+    std::cout << "BlockItemAST { ";
+    ds->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// LVal
+class LValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::string ident;
+
+  void Dump() const override
+  {
+    std::cout << "LValAST { ";
+    std::cout << ident;
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+  bool isnum() const override { return true; }
 };
 
 // Stmt 也是 BaseAST
@@ -229,24 +413,42 @@ public:
   bool isnum() const override { return loe->isnum(); }
 };
 
+// ConstExp
+class ConstExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> exp;
+
+  void Dump() const override
+  {
+    std::cout << "ConstExpAST { ";
+    exp->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
 // PrimaryExp
 class PrimaryExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> n_or_e;
+  std::unique_ptr<BaseAST> eln;
 
   void Dump() const override
   {
     std::cout << "PrimaryExpAST { ";
-    n_or_e->Dump();
+    eln->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    n_or_e->GenerateIR();
+    eln->GenerateIR();
   }
-  bool isnum() const override { return n_or_e->isnum(); }
+  bool isnum() const override { return eln->isnum(); }
 };
 
 enum Op
@@ -404,13 +606,13 @@ public:
       ue->GenerateIR();
       break;
     case MUL:
-      cal(me, ue, "mul");
+      printcalc(me, ue, "mul");
       break;
     case DIV:
-      cal(me, ue, "div");
+      printcalc(me, ue, "div");
       break;
     case MOD:
-      cal(me, ue, "mod");
+      printcalc(me, ue, "mod");
       break;
     default:
       break;
@@ -473,10 +675,10 @@ public:
       me->GenerateIR();
       break;
     case PLUS:
-      cal(ae, me, "add");
+      printcalc(ae, me, "add");
       break;
     case MINUS:
-      cal(ae, me, "sub");
+      printcalc(ae, me, "sub");
       break;
     default:
       break;
@@ -548,16 +750,16 @@ public:
       ae->GenerateIR();
       break;
     case LT_:
-      cal(re, ae, "lt");
+      printcalc(re, ae, "lt");
       break;
     case GT_:
-      cal(re, ae, "gt");
+      printcalc(re, ae, "gt");
       break;
     case LEQ_:
-      cal(re, ae, "le");
+      printcalc(re, ae, "le");
       break;
     case GEQ_:
-      cal(re, ae, "ge");
+      printcalc(re, ae, "ge");
       break;
     default:
       break;
@@ -621,10 +823,10 @@ public:
       re->GenerateIR();
       break;
     case EQ_:
-      cal(ee, re, "eq");
+      printcalc(ee, re, "eq");
       break;
     case NEQ_:
-      cal(ee, re, "ne");
+      printcalc(ee, re, "ne");
       break;
     default:
       break;

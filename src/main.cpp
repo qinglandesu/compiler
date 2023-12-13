@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include "koopa.h"
 #include "../include/AST.h"
 
@@ -23,7 +23,7 @@ int32_t tempnum;
 int nowr = 1; // 临时寄存器名
 int dr = 1;
 string reg[20] = {"x0", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "a1", "a2", "a3", "a4", "a5", "a6"};
-map<koopa_raw_value_t, int> m;
+unordered_map<koopa_raw_value_t, int> m;
 void getreg(const koopa_raw_value_t lhs, const koopa_raw_value_t rhs, int &lr, int &rr);
 
 // 访问 raw program
@@ -165,6 +165,7 @@ int main(int argc, const char *argv[])
   return 0;
 }
 
+//TODO:寄存器分配
 void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
 {
   if (lhs->kind.tag == KOOPA_RVT_INTEGER)
@@ -383,14 +384,11 @@ void Visit(const koopa_raw_binary_t &binary)
     break;
   case KOOPA_RBO_AND:
     getreg(lhs, rhs, lr, rr);
-    cout << " snez " << reg[lr] << ", " << reg[lr] << endl;
-    cout << " snez " << reg[rr] << ", " << reg[rr] << endl;
     cout << " and " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
     break;
   case KOOPA_RBO_OR:
     getreg(lhs, rhs, lr, rr);
     cout << " or " << reg[dr] << ", " << reg[lr] << ", " << reg[rr] << endl;
-    cout << " snez " << reg[dr] << ", " << reg[dr] << endl;
     break;
   default:
     break;
