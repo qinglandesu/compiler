@@ -241,25 +241,25 @@ UnaryExp
   : PrimaryExp {
     auto ast = new UnaryExpAST();
     ast->op = NONE;
-    ast->pe_or_uoue = unique_ptr<BaseAST>($1);
+    ast->pu = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   |'+' UnaryExp {
     auto ast = new UnaryExpAST();
     ast->op = PLUS;
-    ast->pe_or_uoue = unique_ptr<BaseAST>($2);
+    ast->pu = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   |'-' UnaryExp {
     auto ast = new UnaryExpAST();
     ast->op = MINUS;
-    ast->pe_or_uoue = unique_ptr<BaseAST>($2);
+    ast->pu = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   |'!' UnaryExp {
     auto ast = new UnaryExpAST();
     ast->op = NOT;
-    ast->pe_or_uoue = unique_ptr<BaseAST>($2);
+    ast->pu = unique_ptr<BaseAST>($2);
     $$ = ast;
     }
   ;

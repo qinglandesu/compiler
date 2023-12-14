@@ -4,9 +4,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 using namespace std;
 
 static int now_ = 0;
+static std::unordered_map<std::string, int> const_vals;
 
 /*
 
@@ -38,6 +40,7 @@ RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
 EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
 LAndExp     ::= EqExp | LAndExp "&&" EqExp;
 LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
+
 */
 
 // 所有 AST 的基类
@@ -48,6 +51,7 @@ public:
   virtual bool isnum() const { return false; }
   virtual void Dump() const = 0;
   virtual void GenerateIR() const = 0;
+  virtual int calc() const { return 0; };
 };
 
 static void printcalc(const std::unique_ptr<BaseAST> &l, const std::unique_ptr<BaseAST> &r, string op_)
@@ -187,6 +191,7 @@ public:
   }
   void GenerateIR() const override
   {
+    cdl->GenerateIR();
   }
 };
 
@@ -227,6 +232,11 @@ public:
   }
   void GenerateIR() const override
   {
+    for (const auto &def : constdeflist)
+    {
+      if (def) // 确保指针非空
+        def->GenerateIR();
+    }
   }
 };
 
@@ -247,6 +257,7 @@ public:
   }
   void GenerateIR() const override
   {
+    const_vals[ident] = civ->calc();
   }
 };
 
@@ -265,6 +276,10 @@ public:
   }
   void GenerateIR() const override
   {
+  }
+  int calc() const override
+  {
+    return ce->calc();
   }
 };
 
@@ -308,6 +323,9 @@ public:
   }
   void GenerateIR() const override
   {
+    if (s)
+      bis->GenerateIR();
+    bi->GenerateIR();
   }
 };
 
@@ -326,6 +344,7 @@ public:
   }
   void GenerateIR() const override
   {
+    ds->GenerateIR();
   }
 };
 
@@ -344,6 +363,7 @@ public:
   }
   void GenerateIR() const override
   {
+    std::cout << const_vals[ident];
   }
   bool isnum() const override { return true; }
 };
@@ -390,6 +410,10 @@ public:
   {
     std::cout << num;
   }
+  int calc() const override
+  {
+    return num;
+  }
   bool isnum() const override { return true; }
 };
 
@@ -410,6 +434,10 @@ public:
   {
     loe->GenerateIR();
   }
+  int calc() const override
+  {
+    return loe->calc();
+  }
   bool isnum() const override { return loe->isnum(); }
 };
 
@@ -429,6 +457,10 @@ public:
   void GenerateIR() const override
   {
   }
+  int calc() const override
+  {
+    return exp->calc();
+  }
 };
 
 // PrimaryExp
@@ -447,6 +479,10 @@ public:
   void GenerateIR() const override
   {
     eln->GenerateIR();
+  }
+  int calc() const override
+  {
+    return eln->calc();
   }
   bool isnum() const override { return eln->isnum(); }
 };
@@ -474,7 +510,7 @@ class UnaryExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> pe_or_uoue;
+  std::unique_ptr<BaseAST> pu;
   Op op;
 
   void Dump() const override
@@ -496,7 +532,7 @@ public:
     default:
       break;
     }
-    pe_or_uoue->Dump();
+    pu->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
@@ -504,37 +540,37 @@ public:
     switch (op)
     {
     case NONE:
-      pe_or_uoue->GenerateIR();
+      pu->GenerateIR();
       break;
     case PLUS:
-      pe_or_uoue->GenerateIR();
+      pu->GenerateIR();
       break;
     case MINUS:
-      if (pe_or_uoue->isnum())
+      if (pu->isnum())
       {
         std::cout << "  %" << now_ << " = sub 0 , ";
-        pe_or_uoue->GenerateIR();
+        pu->GenerateIR();
         std::cout << endl;
         now_++;
       }
       else
       {
-        pe_or_uoue->GenerateIR();
+        pu->GenerateIR();
         std::cout << "  %" << now_ << " = sub 0 , %" << now_ - 1 << endl;
         now_++;
       }
       break;
     case NOT:
-      if (pe_or_uoue->isnum())
+      if (pu->isnum())
       {
         std::cout << "  %" << now_ << " = eq ";
-        pe_or_uoue->GenerateIR();
+        pu->GenerateIR();
         std::cout << ", 0" << endl;
         now_++;
       }
       else
       {
-        pe_or_uoue->GenerateIR();
+        pu->GenerateIR();
         std::cout << "  %" << now_ << " = eq %" << now_ - 1 << ", 0" << endl;
         now_++;
       }
@@ -543,14 +579,35 @@ public:
       break;
     }
   }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return pu->calc();
+      break;
+    case PLUS:
+      return pu->calc();
+      break;
+    case MINUS:
+      return -(pu->calc());
+      break;
+    case NOT:
+      return !(pu->calc());
+      break;
+    default:
+      return 0;
+      break;
+    }
+  }
   bool isnum() const override
   {
     switch (op)
     {
     case NONE:
-      return pe_or_uoue->isnum();
+      return pu->isnum();
     case PLUS:
-      return pe_or_uoue->isnum();
+      return pu->isnum();
     case MINUS:
     case NOT:
       return false;
@@ -618,6 +675,27 @@ public:
       break;
     }
   }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return ue->calc();
+      break;
+    case MUL:
+      return (me->calc()) * (ue->calc());
+      break;
+    case DIV:
+      return (me->calc()) / (ue->calc());
+      break;
+    case MOD:
+      return (me->calc()) % (ue->calc());
+      break;
+    default:
+      return 0;
+      break;
+    }
+  }
   bool isnum() const override
   {
     switch (op)
@@ -681,6 +759,24 @@ public:
       printcalc(ae, me, "sub");
       break;
     default:
+      break;
+    }
+  }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return me->calc();
+      break;
+    case PLUS:
+      return (ae->calc()) + (me->calc());
+      break;
+    case MINUS:
+      return (ae->calc()) - (me->calc());
+      break;
+    default:
+      return 0;
       break;
     }
   }
@@ -765,6 +861,30 @@ public:
       break;
     }
   }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return ae->calc();
+      break;
+    case LT_:
+      return (re->calc()) < (ae->calc());
+      break;
+    case GT_:
+      return (re->calc()) > (ae->calc());
+      break;
+    case LEQ_:
+      return (re->calc()) <= (ae->calc());
+      break;
+    case GEQ_:
+      return (re->calc()) >= (ae->calc());
+      break;
+    default:
+      return 0;
+      break;
+    }
+  }
   bool isnum() const override
   {
     switch (op)
@@ -829,6 +949,24 @@ public:
       printcalc(ee, re, "ne");
       break;
     default:
+      break;
+    }
+  }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return re->calc();
+      break;
+    case EQ_:
+      return (ee->calc()) == (re->calc());
+      break;
+    case NEQ_:
+      return (ee->calc()) != (re->calc());
+      break;
+    default:
+      return 0;
       break;
     }
   }
@@ -939,6 +1077,20 @@ public:
       break;
     }
   }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return ee->calc();
+    case LAND_:
+      return (lae->calc()) && (ee->calc());
+      break;
+    default:
+      return false;
+      break;
+    }
+  }
   bool isnum() const override
   {
     switch (op)
@@ -1033,6 +1185,20 @@ public:
       }
       break;
     default:
+      break;
+    }
+  }
+  int calc() const override
+  {
+    switch (op)
+    {
+    case NONE:
+      return lae->calc();
+    case LOR_:
+      return (loe->calc()) || (lae->calc());
+      break;
+    default:
+      return false;
       break;
     }
   }
