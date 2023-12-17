@@ -9,6 +9,7 @@ using namespace std;
 
 static int now_ = 0;
 static std::unordered_map<std::string, int> const_vals;
+static std::unordered_map<std::string, int> var_vals;
 
 // 所有 AST 的基类
 class BaseAST
@@ -153,6 +154,10 @@ public:
   }
   void GenerateIR() const override
   {
+    if (type == "int")
+    {
+      std::cout << "i32 ";
+    }
   }
 };
 
@@ -225,6 +230,7 @@ public:
   void GenerateIR() const override
   {
     const_vals[ident] = civ->calc();
+    // std::cout << ident << const_vals[ident] << endl;
   }
 };
 
@@ -320,7 +326,18 @@ public:
   }
   void GenerateIR() const override
   {
-    const_vals[ident] = iv->calc();
+    var_vals[ident] = -1;
+    std::cout << "  @" << ident << " = alloc i32" << endl;
+    if (init)
+    {
+      if (iv->isnum())
+        std::cout << "  store " << iv->calc() << ", @" << ident << endl;
+      else
+      {
+        iv->GenerateIR();
+        std::cout << "  store %" << now_ - 1 << ", @" << ident << endl;
+      }
+    }
   }
 };
 
@@ -339,10 +356,15 @@ public:
   }
   void GenerateIR() const override
   {
+    e->GenerateIR();
   }
   int calc() const override
   {
     return e->calc();
+  }
+  bool isnum() const override
+  {
+    return e->isnum();
   }
 };
 
@@ -386,9 +408,9 @@ public:
   }
   void GenerateIR() const override
   {
+    bi->GenerateIR();
     if (s)
       bis->GenerateIR();
-    bi->GenerateIR();
   }
 };
 
@@ -426,16 +448,51 @@ public:
   }
   void GenerateIR() const override
   {
-    std::cout << const_vals[ident];
+    if (const_vals.find(ident) != const_vals.end())
+      std::cout << const_vals[ident];
+    else
+    {
+      std::cout << "  %" << now_ << " = load @" << ident << endl;
+      now_++;
+    }
   }
-  bool isnum() const override { return true; }
+  int calc() const override
+  {
+    return const_vals[ident];
+  }
+  bool isnum() const override
+  {
+    if (const_vals.find(ident) != const_vals.end())
+      return true;
+    else
+      return false;
+  }
+};
+
+// LeftVal
+class LeftValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::string ident;
+
+  void Dump() const override
+  {
+    std::cout << "LeftValAST { ";
+    std::cout << ident;
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    std::cout << ident;
+  }
 };
 
 // Stmt 也是 BaseAST
 class StmtAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> exp, lv;
+  std::unique_ptr<BaseAST> exp, l;
   bool ret = true;
   void Dump() const override
   {
@@ -444,7 +501,7 @@ public:
       exp->Dump();
     else
     {
-      lv->Dump();
+      l->Dump();
       exp->Dump();
     }
     std::cout << " }";
@@ -467,6 +524,21 @@ public:
     }
     else
     {
+      if (exp->isnum())
+      {
+        std::cout << "  store ";
+        exp->GenerateIR();
+        std::cout << ", @";
+        l->GenerateIR();
+        std::cout << endl;
+      }
+      else
+      {
+        exp->GenerateIR();
+        std::cout << "  store %" << now_ - 1 << ", @";
+        l->GenerateIR();
+        std::cout << endl;
+      }
     }
   }
 };

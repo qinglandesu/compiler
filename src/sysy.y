@@ -45,7 +45,7 @@ using namespace std;
 // 非终结符的类型定义
 %type <ast_val> FuncDef FuncType Block BType BlockItems BlockItem Stmt 
                 Decl ConstDecl ConstDefList ConstDef ConstInitVal VarDecl VarDef VarDefList InitVal 
-                LVal Number ConstExp Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
+                LeftVal LVal Number ConstExp Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
 
@@ -237,11 +237,19 @@ LVal
   }
   ;
 
+LeftVal
+  : IDENT {
+    auto ast = new LeftValAST();
+    ast->ident = *unique_ptr<string>($1);
+    $$=ast;
+  }
+  ;
+
 Stmt
-  :LVal '=' Exp ';'{
+  :LeftVal '=' Exp ';'{
     auto ast = new StmtAST();
     ast->ret = false;
-    ast->lv = unique_ptr<BaseAST>($1);
+    ast->l = unique_ptr<BaseAST>($1);
     ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
