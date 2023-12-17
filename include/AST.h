@@ -10,39 +10,6 @@ using namespace std;
 static int now_ = 0;
 static std::unordered_map<std::string, int> const_vals;
 
-/*
-
-CompUnit    ::= FuncDef;
-
-Decl          ::= ConstDecl;
-ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";";
-BType         ::= "int";
-ConstDef      ::= IDENT "=" ConstInitVal;
-ConstInitVal  ::= ConstExp;
-
-FuncDef     ::= FuncType IDENT "(" ")" Block;
-FuncType    ::= "int";
-
-Block         ::= "{" {BlockItem} "}";
-BlockItem     ::= Decl | Stmt;
-Stmt        ::= "return" Exp ";";
-
-LVal          ::= IDENT;
-ConstExp      ::= Exp;
-Exp         ::= LOrExp;
-PrimaryExp    ::= "(" Exp ")" | LVal | Number;
-Number      ::= INT_CONST;
-UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
-UnaryOp     ::= "+" | "-" | "!";
-MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
-AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
-RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
-EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
-LAndExp     ::= EqExp | LAndExp "&&" EqExp;
-LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
-
-*/
-
 // 所有 AST 的基类
 class BaseAST
 {
@@ -160,17 +127,32 @@ class DeclAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> cd;
+  std::unique_ptr<BaseAST> cv;
 
   void Dump() const override
   {
     std::cout << "DeclAST { ";
-    cd->Dump();
+    cv->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    cd->GenerateIR();
+    cv->GenerateIR();
+  }
+};
+
+// BType
+class BTypeAST : public BaseAST
+{
+public:
+  std::string type;
+
+  void Dump() const override
+  {
+    std::cout << "BTypeAST { " << type << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
@@ -192,21 +174,6 @@ public:
   void GenerateIR() const override
   {
     cdl->GenerateIR();
-  }
-};
-
-// BType
-class BTypeAST : public BaseAST
-{
-public:
-  std::string type;
-
-  void Dump() const override
-  {
-    std::cout << "BTypeAST { " << type << " }";
-  }
-  void GenerateIR() const override
-  {
   }
 };
 
@@ -251,7 +218,7 @@ public:
   void Dump() const override
   {
     std::cout << "ConstDefAST { ";
-    std::cout << ", " << ident << ", ";
+    std::cout << ident << ", ";
     civ->Dump();
     std::cout << " }";
   }
@@ -283,6 +250,102 @@ public:
   }
 };
 
+// VarDecl
+class VarDeclAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> bt, vdl;
+
+  void Dump() const override
+  {
+    std::cout << "VarDeclAST { ";
+    bt->Dump();
+    std::cout << " , ";
+    vdl->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    vdl->GenerateIR();
+  }
+};
+
+// VarDefList
+class VarDefListAST : public BaseAST
+{
+public:
+  std::vector<std::unique_ptr<BaseAST>> vardeflist;
+
+  void AddVarDef(std::unique_ptr<BaseAST> &&cd)
+  {
+    vardeflist.push_back(std::move(cd));
+  }
+  void Dump() const override
+  {
+    std::cout << "VarDefListAST { ";
+    for (const auto &def : vardeflist)
+    {
+      if (def) // 确保指针非空
+        def->Dump();
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    for (const auto &def : vardeflist)
+    {
+      if (def) // 确保指针非空
+        def->GenerateIR();
+    }
+  }
+};
+
+// VarDef
+class VarDefAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> iv;
+  std::string ident;
+  bool init = false;
+
+  void Dump() const override
+  {
+    std::cout << "ConstDefAST { ";
+    std::cout << ", " << ident << ", ";
+    if (init)
+      iv->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    const_vals[ident] = iv->calc();
+  }
+};
+
+// InitVal
+class InitValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> e;
+
+  void Dump() const override
+  {
+    std::cout << "ConstInitValAST { ";
+    e->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+  int calc() const override
+  {
+    return e->calc();
+  }
+};
+
 // Block 也是 BaseAST
 class BlockAST : public BaseAST
 {
@@ -310,15 +373,15 @@ class BlockItemsAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> bis, bi;
+  std::unique_ptr<BaseAST> bi, bis;
   bool s = false;
 
   void Dump() const override
   {
     std::cout << "BlockItemsAST { ";
+    bi->Dump();
     if (s)
       bis->Dump();
-    bi->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
@@ -372,26 +435,38 @@ public:
 class StmtAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> exp;
-
+  std::unique_ptr<BaseAST> exp, lv;
+  bool ret = true;
   void Dump() const override
   {
     std::cout << "StmtAST { ";
-    exp->Dump();
+    if (ret)
+      exp->Dump();
+    else
+    {
+      lv->Dump();
+      exp->Dump();
+    }
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    if (exp->isnum())
+    if (ret)
     {
-      std::cout << "  ret ";
-      exp->GenerateIR();
-      std::cout << endl;
+      if (exp->isnum())
+      {
+        std::cout << "  ret ";
+        exp->GenerateIR();
+        std::cout << endl;
+      }
+      else
+      {
+        exp->GenerateIR();
+        std::cout << "  ret %" << now_ - 1 << endl;
+      }
     }
     else
     {
-      exp->GenerateIR();
-      std::cout << "  ret %" << now_ - 1 << endl;
     }
   }
 };

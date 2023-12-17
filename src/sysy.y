@@ -44,7 +44,7 @@ using namespace std;
 
 // 非终结符的类型定义
 %type <ast_val> FuncDef FuncType Block BType BlockItems BlockItem Stmt 
-                Decl ConstDecl ConstDefList ConstDef ConstInitVal 
+                Decl ConstDecl ConstDefList ConstDef ConstInitVal VarDecl VarDef VarDefList InitVal 
                 LVal Number ConstExp Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
@@ -93,7 +93,20 @@ FuncType
 Decl
   : ConstDecl {
     auto ast = new DeclAST();
-    ast->cd = unique_ptr<BaseAST>($1);
+    ast->cv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | VarDecl {
+    auto ast = new DeclAST();
+    ast->cv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+BType
+  : INT {
+    auto ast = new BTypeAST();
+    ast->type = "int";
     $$ = ast;
   }
   ;
@@ -103,14 +116,6 @@ ConstDecl
     auto ast = new ConstDeclAST();
     ast->bt = unique_ptr<BaseAST>($2);
     ast->cdl = unique_ptr<BaseAST>($3);
-    $$ = ast;
-  }
-  ;
-
-BType
-  : INT {
-    auto ast = new BTypeAST();
-    ast->type = "int";
     $$ = ast;
   }
   ;
@@ -144,6 +149,50 @@ ConstInitVal
   }
   ;
 
+VarDecl
+  : BType VarDefList ';'{
+    auto ast = new VarDeclAST();
+    ast->bt = unique_ptr<BaseAST>($1);
+    ast->vdl = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+VarDefList
+ : VarDef {
+    auto ast = new VarDefListAST();
+    ast->AddVarDef(unique_ptr<BaseAST>($1));
+    $$ = ast;
+ }
+ | VarDefList ',' VarDef {
+    dynamic_cast<VarDefListAST*>($1)->AddVarDef(unique_ptr<BaseAST>($3));
+    $$ = $1;
+ }
+ ;
+
+VarDef
+  :IDENT {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->init = true;
+    ast->iv = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+InitVal
+  : Exp {
+    auto ast = new InitValAST();
+    ast->e = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
 Block
   : '{' BlockItems '}' {
     auto ast = new BlockAST();
@@ -159,11 +208,11 @@ BlockItems
     ast->bi = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  | BlockItems BlockItem {
+  | BlockItem BlockItems {
     auto ast = new BlockItemsAST();
     ast->s = true;
-    ast->bis = unique_ptr<BaseAST>($1);
-    ast->bi = unique_ptr<BaseAST>($2);
+    ast->bi = unique_ptr<BaseAST>($1);
+    ast->bis = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
 
@@ -189,7 +238,14 @@ LVal
   ;
 
 Stmt
-  : RETURN Exp ';' {
+  :LVal '=' Exp ';'{
+    auto ast = new StmtAST();
+    ast->ret = false;
+    ast->lv = unique_ptr<BaseAST>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | RETURN Exp ';' {
     auto ast = new StmtAST();
     ast->exp = unique_ptr<BaseAST>($2);
     $$ = ast;
