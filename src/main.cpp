@@ -20,11 +20,13 @@ extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
 int32_t tempnum;
-int nowr = 1; // 临时寄存器名
-int dr = 1;
 string reg[16] = {"x0", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "a1", "a2", "a3", "a4", "a5", "a6"};
 int reg_used[16] = {0};
-unordered_map<koopa_raw_value_t, int> m;
+int tempr = 1;
+int dr = 1;
+unordered_map<koopa_raw_value_t, int> regnum;
+int off = 0;
+unordered_map<koopa_raw_value_t, int> offset;
 int findreg();
 void getreg(const koopa_raw_value_t lhs, const koopa_raw_value_t rhs, int &lr, int &rr);
 
@@ -44,6 +46,10 @@ void Visit(const koopa_raw_return_t &ret);
 void Visit(const koopa_raw_integer_t &integer);
 // 访问binary
 void Visit(const koopa_raw_binary_t &binary);
+// 访问load
+void Visit(const koopa_raw_load_t &load);
+// 访问store
+void Visit(const koopa_raw_store_t &store);
 
 int main(int argc, const char *argv[])
 {
@@ -201,16 +207,22 @@ void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
       lr = 0;
     else
     {
-      nowr = findreg();
-      cout << " li " << reg[nowr] << ", ";
-      Visit(lhs->kind.data.integer);
-      cout << tempnum << endl;
-      lr = nowr;
-      reg_used[nowr] = 2;
+      /*
+      tempr = findreg();
+      cout << " li " << reg[tempr] << ", " << lhs->kind.data.integer.value << tempnum << endl;
+      lr = tempr;
+      reg_used[tempr] = 2;
+      */
+      cout << "   li t0, " << lhs->kind.data.integer.value << endl;
+      lr = 1;
     }
   }
   else
-    lr = m[lhs];
+  {
+    // lr = regnum[lhs];
+    cout << " lw t0, " << offset[lhs] << "(sp)" << endl;
+    lr = 1;
+  }
 
   if (rhs->kind.tag == KOOPA_RVT_INTEGER)
   {
@@ -218,22 +230,28 @@ void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
       rr = 0;
     else
     {
-      nowr = findreg();
-      cout << " li " << reg[nowr] << ", ";
-      Visit(rhs->kind.data.integer);
-      cout << tempnum << endl;
-      rr = nowr;
-      reg_used[nowr] = 2;
+      /*
+      tempr = findreg();
+      cout << " li " << reg[tempr] << ", " << rhs->kind.data.integer.value << tempnum << endl;
+      rr = tempr;
+      reg_used[tempr] = 2;
+      */
+      cout << " li t1, " << rhs->kind.data.integer.value << endl;
+      rr = 2;
     }
   }
   else
-    rr = m[rhs];
-
+  {
+    // rr = regnum[rhs];
+    cout << " lw t1, " << offset[rhs] << "(sp)" << endl;
+    rr = 2;
+  }
+  /*
   if (lr == 0 && rr == 0)
   {
-    nowr = findreg();
-    dr = nowr;
-    reg_used[nowr] = 2;
+    tempr = findreg();
+    dr = tempr;
+    reg_used[tempr] = 2;
   }
   else if (lr == 0)
   {
@@ -243,6 +261,8 @@ void getreg(koopa_raw_value_t lhs, koopa_raw_value_t rhs, int &lr, int &rr)
   {
     dr = lr;
   }
+  */
+  dr = 1;
 }
 
 // 访问 raw program
@@ -292,6 +312,7 @@ void Visit(const koopa_raw_function_t &func)
   const char *name = func->name;
   cout << " .globl " << name + 1 << endl;
   cout << name + 1 << ":" << endl;
+  cout << " addi sp, sp, -256" << endl;
   // 访问所有基本块
   Visit(func->bbs);
 }
@@ -320,7 +341,25 @@ void Visit(const koopa_raw_value_t &value)
     break;
   case KOOPA_RVT_BINARY: // 访问 binary 指令
     Visit(kind.data.binary);
-    m[value] = dr;
+    regnum[value] = dr;
+    if (offset.find(value) == offset.end())
+    {
+      offset[value] = off;
+      off += 4;
+    }
+    break;
+  case KOOPA_RVT_LOAD: // 访问 load 指令
+    Visit(kind.data.load);
+    if (offset.find(value) == offset.end())
+    {
+      offset[value] = off;
+      off += 4;
+    }
+    break;
+  case KOOPA_RVT_STORE: // 访问 load 指令
+    Visit(kind.data.store);
+    break;
+  case KOOPA_RVT_ALLOC: // 访问 alloc 指令
     break;
   default:
     // 其他类型暂时遇不到
@@ -339,13 +378,16 @@ void Visit(const koopa_raw_return_t &ret)
   {
     Visit(ret_value);
     cout << " li a0, " << tempnum << endl;
+    cout << " addi sp, sp, 256" << endl;
     cout << " ret" << endl;
   }
   else
   {
-    cout << " mv a0, " << reg[m[ret_value]] << endl;
+    // cout << " mv a0, " << reg[regnum[ret_value]] << endl;
+    cout << " lw a0, " << offset[ret_value] << "(sp)" << endl;
+    cout << " addi sp, sp, 256" << endl;
     cout << " ret" << endl;
-    reg_used[m[ret_value]] = 1;
+    reg_used[regnum[ret_value]] = 1;
   }
 }
 
@@ -370,6 +412,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_ADD:
     getreg(lhs, rhs, lr, rr);
@@ -377,6 +420,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_MUL:
     getreg(lhs, rhs, lr, rr);
@@ -384,6 +428,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_DIV:
     getreg(lhs, rhs, lr, rr);
@@ -391,6 +436,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_MOD:
     getreg(lhs, rhs, lr, rr);
@@ -398,6 +444,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_EQ:
     getreg(lhs, rhs, lr, rr);
@@ -406,6 +453,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_NOT_EQ:
     getreg(lhs, rhs, lr, rr);
@@ -414,6 +462,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_GT:
     getreg(lhs, rhs, lr, rr);
@@ -421,6 +470,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_LT:
     getreg(lhs, rhs, lr, rr);
@@ -428,6 +478,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_GE:
     getreg(lhs, rhs, lr, rr);
@@ -436,6 +487,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_LE:
     getreg(lhs, rhs, lr, rr);
@@ -444,6 +496,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_AND:
     getreg(lhs, rhs, lr, rr);
@@ -451,6 +504,7 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   case KOOPA_RBO_OR:
     getreg(lhs, rhs, lr, rr);
@@ -458,8 +512,38 @@ void Visit(const koopa_raw_binary_t &binary)
     reg_used[lr] = 1;
     reg_used[rr] = 1;
     reg_used[dr] = 2;
+    cout << " sw t0, " << off << "(sp)" << endl;
     break;
   default:
     break;
   }
+}
+
+// 访问load
+void Visit(const koopa_raw_load_t &load)
+{
+  auto src = load.src;
+  cout << " lw t0, " << offset[src] << "(sp)" << endl;
+  cout << " sw t0, " << off << "(sp)" << endl;
+}
+
+// 访问store(顺便alloc)
+void Visit(const koopa_raw_store_t &store)
+{
+  auto value = store.value;
+  auto dest = store.dest;
+  if (value->kind.tag == KOOPA_RVT_INTEGER)
+  {
+    cout << " li t0, " << value->kind.data.integer.value << endl;
+  }
+  else
+  {
+    cout << " lw t0, " << offset[value] << "(sp)" << endl;
+  }
+  if (offset.find(dest) == offset.end())
+  {
+    offset[dest] = off;
+    off += 4;
+  }
+  cout << " sw t0, " << offset[dest] << "(sp)" << endl;
 }
