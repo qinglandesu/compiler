@@ -11,7 +11,8 @@ using namespace std;
 static int now_ = 0;
 static int now_block = -1;
 static int blockn = -1;
-static int parentblock[32] = {0};
+static int parentblock[256] = {0};
+static bool ret_ = false;
 static std::unordered_map<std::string, int> const_vals;
 static std::unordered_set<std::string> var_vals;
 
@@ -109,6 +110,7 @@ public:
               << "entry:" << endl;
     block->GenerateIR();
     std::cout << "}";
+    ret_ = false;
   }
 };
 
@@ -405,7 +407,6 @@ public:
       blockn++;
       parentblock[blockn] = now_block;
       now_block = blockn;
-
       bis->GenerateIR();
       now_block = parentblock[now_block];
     }
@@ -430,9 +431,12 @@ public:
   }
   void GenerateIR() const override
   {
-    bi->GenerateIR();
-    if (s)
-      bis->GenerateIR();
+    if (!ret_)
+    {
+      bi->GenerateIR();
+      if (s)
+        bis->GenerateIR();
+    }
   }
 };
 
@@ -451,7 +455,10 @@ public:
   }
   void GenerateIR() const override
   {
-    ds->GenerateIR();
+    if (!ret_)
+    {
+      ds->GenerateIR();
+    }
   }
 };
 
@@ -601,8 +608,11 @@ public:
         exp->GenerateIR();
         std::cout << "  ret %" << now_ - 1 << endl;
       }
+      ret_ = true;
       break;
     case 3:
+      cout << " ret" << endl;
+      ret_ = true;
       break;
     case 4:
       exp->GenerateIR();
