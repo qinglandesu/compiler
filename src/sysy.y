@@ -199,6 +199,11 @@ Block
     ast->bis = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
+  | '{' '}' {
+    auto ast = new BlockAST();
+    ast->empty = true;
+    $$ = ast;
+  }
   ;
 
 BlockItems

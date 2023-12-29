@@ -5,14 +5,15 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 using namespace std;
 
 static int now_ = 0;
 static int now_block = -1;
-static int blockcount = -1;
+static int blockn = -1;
 static int parentblock[32] = {0};
 static std::unordered_map<std::string, int> const_vals;
-static std::unordered_map<std::string, int> var_vals;
+static std::unordered_set<std::string> var_vals;
 
 // 所有 AST 的基类
 class BaseAST
@@ -236,8 +237,8 @@ public:
   }
   void GenerateIR() const override
   {
-    const_vals[ident] = civ->calc();
-    // std::cout << ident << const_vals[ident] << endl;
+    string ident_ = ident + "_" + std::to_string(now_block);
+    const_vals[ident_] = civ->calc();
   }
 };
 
@@ -333,16 +334,17 @@ public:
   }
   void GenerateIR() const override
   {
-    var_vals[ident] = 0;
-    std::cout << "  @" << ident << " = alloc i32" << endl;
+    string ident_ = ident + "_" + std::to_string(now_block);
+    var_vals.insert(ident_);
+    std::cout << "  @" << ident_ << " = alloc i32" << endl;
     if (init)
     {
       if (iv->isnum())
-        std::cout << "  store " << iv->calc() << ", @" << ident << endl;
+        std::cout << "  store " << iv->calc() << ", @" << ident_ << endl;
       else
       {
         iv->GenerateIR();
-        std::cout << "  store %" << now_ - 1 << ", @" << ident << endl;
+        std::cout << "  store %" << now_ - 1 << ", @" << ident_ << endl;
       }
     }
   }
@@ -380,25 +382,33 @@ class BlockAST : public BaseAST
 {
 public:
   std::unique_ptr<BaseAST> bis;
+  bool empty = false;
 
   void Dump() const override
   {
-    blockcount++;
-    parentblock[blockcount] = now_block;
-    now_block = blockcount;
-    std::cout << "BlockAST { " << now_block << " ";
-    bis->Dump();
-    std::cout << " }";
-    now_block = parentblock[now_block];
-    std::cout << now_block;
+    if (!empty)
+    {
+      blockn++;
+      parentblock[blockn] = now_block;
+      now_block = blockn;
+      std::cout << "BlockAST { " << now_block << " ";
+      bis->Dump();
+      std::cout << " }";
+      now_block = parentblock[now_block];
+      std::cout << now_block;
+    }
   }
   void GenerateIR() const override
   {
-    blockcount++;
-    parentblock[blockcount] = now_block;
-    now_block = blockcount;
-    bis->GenerateIR();
-    now_block = parentblock[now_block];
+    if (!empty)
+    {
+      blockn++;
+      parentblock[blockn] = now_block;
+      now_block = blockn;
+
+      bis->GenerateIR();
+      now_block = parentblock[now_block];
+    }
   }
 };
 
@@ -460,24 +470,43 @@ public:
   }
   void GenerateIR() const override
   {
-    if (const_vals.find(ident) != const_vals.end())
-      std::cout << const_vals[ident];
-    else
+    int tempblock = now_block;
+    while (tempblock != -1)
     {
-      std::cout << "  %" << now_ << " = load @" << ident << endl;
-      now_++;
+      if (const_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+      {
+        std::cout << const_vals[ident + "_" + std::to_string(tempblock)];
+        break;
+      }
+      if (var_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+      {
+        std::cout << "  %" << now_ << " = load @" << ident + "_" + std::to_string(tempblock) << endl;
+        now_++;
+        break;
+      }
+      tempblock = parentblock[tempblock];
     }
   }
   int calc() const override
   {
-    return const_vals[ident];
+    int tempblock = now_block;
+    while (tempblock != -1 && const_vals.count(ident + "_" + std::to_string(tempblock)) == 0)
+      tempblock = parentblock[tempblock];
+    string ident_ = ident + "_" + std::to_string(tempblock);
+    return const_vals[ident_];
   }
   bool isnum() const override
   {
-    if (const_vals.find(ident) != const_vals.end())
-      return true;
-    else
-      return false;
+    int tempblock = now_block;
+    while (tempblock != -1)
+    {
+      if (const_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+        return true;
+      if (var_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+        return false;
+      tempblock = parentblock[tempblock];
+    }
+    return false;
   }
 };
 
@@ -496,7 +525,11 @@ public:
   }
   void GenerateIR() const override
   {
-    std::cout << ident;
+    int tempblock = now_block;
+    while (tempblock != -1 && var_vals.count(ident + "_" + std::to_string(tempblock)) == 0)
+      tempblock = parentblock[tempblock];
+    string ident_ = ident + "_" + std::to_string(tempblock);
+    std::cout << ident_;
   }
 };
 
@@ -570,7 +603,6 @@ public:
       }
       break;
     case 3:
-      std::cout << "  ret" << endl;
       break;
     case 4:
       exp->GenerateIR();
