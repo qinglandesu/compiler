@@ -8,6 +8,9 @@
 using namespace std;
 
 static int now_ = 0;
+static int now_block = -1;
+static int blockcount = -1;
+static int parentblock[32] = {0};
 static std::unordered_map<std::string, int> const_vals;
 static std::unordered_map<std::string, int> var_vals;
 
@@ -100,7 +103,11 @@ public:
     std::cout << "fun ";
     std::cout << "@" << ident << "(): ";
     func_type->GenerateIR();
+    std::cout << "{" << endl;
+    std::cout << "%"
+              << "entry:" << endl;
     block->GenerateIR();
+    std::cout << "}";
   }
 };
 
@@ -326,7 +333,7 @@ public:
   }
   void GenerateIR() const override
   {
-    var_vals[ident] = -1;
+    var_vals[ident] = 0;
     std::cout << "  @" << ident << " = alloc i32" << endl;
     if (init)
     {
@@ -372,21 +379,26 @@ public:
 class BlockAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> bi;
+  std::unique_ptr<BaseAST> bis;
 
   void Dump() const override
   {
-    std::cout << "BlockAST { ";
-    bi->Dump();
+    blockcount++;
+    parentblock[blockcount] = now_block;
+    now_block = blockcount;
+    std::cout << "BlockAST { " << now_block << " ";
+    bis->Dump();
     std::cout << " }";
+    now_block = parentblock[now_block];
+    std::cout << now_block;
   }
   void GenerateIR() const override
   {
-    std::cout << "{" << endl;
-    std::cout << "%"
-              << "entry:" << endl;
-    bi->GenerateIR();
-    std::cout << "}";
+    blockcount++;
+    parentblock[blockcount] = now_block;
+    now_block = blockcount;
+    bis->GenerateIR();
+    now_block = parentblock[now_block];
   }
 };
 
@@ -492,38 +504,42 @@ public:
 class StmtAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> exp, l;
-  bool ret = true;
+  std::unique_ptr<BaseAST> exp, l, b;
+  int type = 0;
   void Dump() const override
   {
     std::cout << "StmtAST { ";
-    if (ret)
-      exp->Dump();
-    else
+    switch (type)
     {
+    case 1:
       l->Dump();
       exp->Dump();
+      break;
+    case 2:
+      std::cout << "return ";
+      exp->Dump();
+      break;
+    case 3:
+      std::cout << "return ";
+      break;
+    case 4:
+      exp->Dump();
+      break;
+    case 5:
+      break;
+    case 6:
+      b->Dump();
+      break;
+    default:
+      break;
     }
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    if (ret)
+    switch (type)
     {
-      if (exp->isnum())
-      {
-        std::cout << "  ret ";
-        exp->GenerateIR();
-        std::cout << endl;
-      }
-      else
-      {
-        exp->GenerateIR();
-        std::cout << "  ret %" << now_ - 1 << endl;
-      }
-    }
-    else
-    {
+    case 1:
       if (exp->isnum())
       {
         std::cout << "  store ";
@@ -539,6 +555,33 @@ public:
         l->GenerateIR();
         std::cout << endl;
       }
+      break;
+    case 2:
+      if (exp->isnum())
+      {
+        std::cout << "  ret ";
+        exp->GenerateIR();
+        std::cout << endl;
+      }
+      else
+      {
+        exp->GenerateIR();
+        std::cout << "  ret %" << now_ - 1 << endl;
+      }
+      break;
+    case 3:
+      std::cout << "  ret" << endl;
+      break;
+    case 4:
+      exp->GenerateIR();
+      break;
+    case 5:
+      break;
+    case 6:
+      b->GenerateIR();
+      break;
+    default:
+      break;
     }
   }
 };

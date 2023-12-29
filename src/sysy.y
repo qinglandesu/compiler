@@ -196,7 +196,7 @@ InitVal
 Block
   : '{' BlockItems '}' {
     auto ast = new BlockAST();
-    ast->bi = unique_ptr<BaseAST>($2);
+    ast->bis = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
@@ -248,14 +248,37 @@ LeftVal
 Stmt
   :LeftVal '=' Exp ';'{
     auto ast = new StmtAST();
-    ast->ret = false;
+    ast->type = 1;
     ast->l = unique_ptr<BaseAST>($1);
     ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   | RETURN Exp ';' {
     auto ast = new StmtAST();
+    ast->type = 2;
     ast->exp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | RETURN ';' {
+    auto ast = new StmtAST();
+    ast->type = 3;
+    $$ = ast;
+  }
+  | Exp ';' {
+    auto ast = new StmtAST();
+    ast->type = 4;
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ';' {
+    auto ast = new StmtAST();
+    ast->type = 5;
+    $$ = ast;
+  }
+  | Block {
+    auto ast = new StmtAST();
+    ast->type = 6;
+    ast->b = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   ;
