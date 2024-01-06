@@ -544,7 +544,7 @@ public:
 class StmtAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> exp, l, b;
+  std::unique_ptr<BaseAST> exp, l, b, ifs;
   int type = 0;
   void Dump() const override
   {
@@ -569,6 +569,12 @@ public:
       break;
     case 6:
       b->Dump();
+      break;
+    case 7:
+      ifs->Dump();
+      break;
+    case 8:
+      ifs->Dump();
       break;
     default:
       break;
@@ -622,9 +628,55 @@ public:
     case 6:
       b->GenerateIR();
       break;
+    case 7:
+      ifs->GenerateIR();
+      break;
+    case 8:
+      ifs->GenerateIR();
+      break;
     default:
       break;
     }
+  }
+};
+
+// IfStmt
+class IfStmtAST : public BaseAST
+{
+public:
+  std::unique_ptr<BaseAST> e, ifs;
+
+  void Dump() const override
+  {
+    std::cout << "IfStmtAST { ";
+    e->Dump();
+    std::cout << ", ";
+    ifs->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// IfElseStmt
+class IfElseStmtAST : public BaseAST
+{
+public:
+  std::unique_ptr<BaseAST> e, ifs, els;
+
+  void Dump() const override
+  {
+    std::cout << "IfElseStmtAST { ";
+    e->Dump();
+    std::cout << ", ";
+    ifs->Dump();
+    std::cout << ", ";
+    els->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
