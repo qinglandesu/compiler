@@ -10,9 +10,10 @@ using namespace std;
 
 static int now_ = 0;
 static int now_block = -1;
+static int if_cnt = -1;
 static int blockn = -1;
 static int parentblock[256] = {0};
-static bool ret_ = false;
+static bool block_ret = false;
 static std::unordered_map<std::string, int> const_vals;
 static std::unordered_set<std::string> var_vals;
 
@@ -110,7 +111,7 @@ public:
               << "entry:" << endl;
     block->GenerateIR();
     std::cout << "}";
-    ret_ = false;
+    block_ret = false;
   }
 };
 
@@ -431,7 +432,7 @@ public:
   }
   void GenerateIR() const override
   {
-    if (!ret_)
+    if (!block_ret)
     {
       bi->GenerateIR();
       if (s)
@@ -455,7 +456,7 @@ public:
   }
   void GenerateIR() const override
   {
-    if (!ret_)
+    if (!block_ret)
     {
       ds->GenerateIR();
     }
@@ -614,11 +615,11 @@ public:
         exp->GenerateIR();
         std::cout << "  ret %" << now_ - 1 << endl;
       }
-      ret_ = true;
+      block_ret = true;
       break;
     case 3:
       cout << " ret" << endl;
-      ret_ = true;
+      block_ret = true;
       break;
     case 4:
       exp->GenerateIR();
@@ -656,6 +657,28 @@ public:
   }
   void GenerateIR() const override
   {
+    if_cnt++;
+    int now_if = if_cnt;
+    if (e->isnum())
+    {
+      std::cout << "  %" << now_ << " = ne ";
+      e->GenerateIR();
+      std::cout << ", 0" << endl;
+      now_++;
+    }
+    else
+      e->GenerateIR();
+    std::cout << "  br %" << now_ - 1 << ", %then" << now_if << ", %end" << now_if << endl;
+    std::cout << endl;
+
+    std::cout << "%then" << now_if << ":" << endl;
+    ifs->GenerateIR();
+    if (!block_ret)
+      std::cout << "  jump %end" << now_if << endl;
+    std::cout << std::endl;
+    block_ret = false;
+
+    std::cout << "%end" << now_if << ":" << endl;
   }
 };
 
@@ -677,6 +700,35 @@ public:
   }
   void GenerateIR() const override
   {
+    if_cnt++;
+    int now_if = if_cnt;
+    if (e->isnum())
+    {
+      std::cout << "  %" << now_ << " = ne ";
+      e->GenerateIR();
+      std::cout << ", 0" << endl;
+      now_++;
+    }
+    else
+      e->GenerateIR();
+    std::cout << "  br %" << now_ - 1 << ", %then" << now_if << ", %else" << now_if << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "%then" << now_if << ":" << std::endl;
+    ifs->GenerateIR();
+    if (!block_ret)
+      std::cout << "  jump %end" << now_if << std::endl;
+    std::cout << std::endl;
+    block_ret = false;
+
+    std::cout << "%else" << now_if << ":" << std::endl;
+    els->GenerateIR();
+    if (!block_ret)
+      std::cout << "  jump %end" << now_if << std::endl;
+    std::cout << std::endl;
+    block_ret = false;
+
+    std::cout << "%end" << now_if << ":" << std::endl;
   }
 };
 
