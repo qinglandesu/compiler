@@ -1399,13 +1399,27 @@ public:
       {
         lae->GenerateIR();
         int templ = now_ - 1;
+        std::cout << "  @result_" << templ << " = alloc i32" << std::endl;
+        std::cout << "  %" << now_ << " = ne %" << templ << ", 0" << endl;
+        std::cout << "  store %" << now_ << ", @result_" << templ << std::endl;
+        now_++;
+
+        if_cnt++;
+        int now_if = if_cnt;
+        std::cout << "  br %" << now_ - 1 << ", %then" << now_if << ", %end" << now_if << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "%then" << now_if << ":" << std::endl;
         ee->GenerateIR();
         int tempr = now_ - 1;
-        std::cout << "  %" << now_ << " = ne %" << templ << ", 0" << endl;
-        now_++;
         std::cout << "  %" << now_ << " = ne %" << tempr << ", 0" << endl;
+        std::cout << "  store " << '%' << now_ << ", @result_" << templ << std::endl;
         now_++;
-        std::cout << "  %" << now_ << " = and %" << now_ - 2 << ", %" << now_ - 1 << endl;
+        std::cout << "  jump %end" << now_if << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "%end" << now_if << ":" << std::endl;
+        std::cout << "  %" << now_ << "= load @result_" << templ << std::endl;
         now_++;
       }
       break;
@@ -1512,11 +1526,27 @@ public:
       {
         loe->GenerateIR();
         int templ = now_ - 1;
+        std::cout << "  @result_" << templ << " = alloc i32" << std::endl;
+        std::cout << "  %" << now_ << " = ne %" << templ << ", 0" << endl;
+        std::cout << "  store %" << now_ << ", @result_" << templ << std::endl;
+        now_++;
+
+        if_cnt++;
+        int now_if = if_cnt;
+        std::cout << "  br %" << now_ - 1 << ", %end" << now_if << ", %then" << now_if << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "%then" << now_if << ":" << std::endl;
         lae->GenerateIR();
         int tempr = now_ - 1;
-        std::cout << "  %" << now_ << " = or %" << templ << ", %" << tempr << endl;
+        std::cout << "  %" << now_ << " = ne %" << tempr << ", 0" << endl;
+        std::cout << "  store " << '%' << now_ << ", @result_" << templ << std::endl;
         now_++;
-        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+        std::cout << "  jump %end" << now_if << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "%end" << now_if << ":" << std::endl;
+        std::cout << "  %" << now_ << "= load @result_" << templ << std::endl;
         now_++;
       }
       break;

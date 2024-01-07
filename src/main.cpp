@@ -50,6 +50,10 @@ void Visit(const koopa_raw_binary_t &binary);
 void Visit(const koopa_raw_load_t &load);
 // 访问store
 void Visit(const koopa_raw_store_t &store);
+// 访问branch
+void Visit(const koopa_raw_branch_t &branch);
+// 访问jump
+void Visit(const koopa_raw_jump_t &jump);
 
 int main(int argc, const char *argv[])
 {
@@ -323,6 +327,9 @@ void Visit(const koopa_raw_basic_block_t &bb)
   // 执行一些其他的必要操作
   // ...
   // 访问所有指令
+  if (bb->name)
+    cout << endl
+         << bb->name + 1 << ":" << endl;
   Visit(bb->insts);
 }
 
@@ -360,6 +367,12 @@ void Visit(const koopa_raw_value_t &value)
     Visit(kind.data.store);
     break;
   case KOOPA_RVT_ALLOC: // 访问 alloc 指令
+    break;
+  case KOOPA_RVT_BRANCH: // 访问 branch 指令
+    Visit(kind.data.branch);
+    break;
+  case KOOPA_RVT_JUMP: // 访问 jump 指令
+    Visit(kind.data.jump);
     break;
   default:
     // 其他类型暂时遇不到
@@ -546,4 +559,20 @@ void Visit(const koopa_raw_store_t &store)
     off += 4;
   }
   cout << " sw t0, " << offset[dest] << "(sp)" << endl;
+}
+
+// 访问branch
+void Visit(const koopa_raw_branch_t &branch)
+{
+  cout << " lw t0, " << offset[branch.cond] << "(sp)" << endl;
+  cout << " bnez t0, " << branch.true_bb->name + 1 << endl;
+  cout << " j " << branch.false_bb->name + 1 << endl;
+  cout << endl;
+}
+
+// 访问jump
+void Visit(const koopa_raw_jump_t &jump)
+{
+  cout << " j " << jump.target->name + 1 << endl;
+  cout << endl;
 }
