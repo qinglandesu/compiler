@@ -9,9 +9,12 @@
 using namespace std;
 
 static int now_ = 0;
-static int now_block = -1;
 static int if_cnt = -1;
-static int blockn = -1;
+static int now_circ = -1;
+static int circ_cnt = -1;
+static int parentcirc[256] = {0};
+static int now_block = -1;
+static int block_cnt = -1;
 static int parentblock[256] = {0};
 static bool block_ret = false;
 static std::unordered_map<std::string, int> const_vals;
@@ -391,9 +394,9 @@ public:
   {
     if (!empty)
     {
-      blockn++;
-      parentblock[blockn] = now_block;
-      now_block = blockn;
+      block_cnt++;
+      parentblock[block_cnt] = now_block;
+      now_block = block_cnt;
       std::cout << "BlockAST { " << now_block << " ";
       bis->Dump();
       std::cout << " }";
@@ -405,9 +408,9 @@ public:
   {
     if (!empty)
     {
-      blockn++;
-      parentblock[blockn] = now_block;
-      now_block = blockn;
+      block_cnt++;
+      parentblock[block_cnt] = now_block;
+      now_block = block_cnt;
       bis->GenerateIR();
       now_block = parentblock[now_block];
     }
@@ -687,8 +690,8 @@ public:
     ifs->GenerateIR();
     if (!block_ret)
       std::cout << "  jump %end" << now_if << endl;
-    std::cout << std::endl;
     block_ret = false;
+    std::cout << std::endl;
 
     std::cout << "%end" << now_if << ":" << endl;
   }
@@ -730,15 +733,15 @@ public:
     ifs->GenerateIR();
     if (!block_ret)
       std::cout << "  jump %end" << now_if << std::endl;
-    std::cout << std::endl;
     block_ret = false;
+    std::cout << std::endl;
 
     std::cout << "%else" << now_if << ":" << std::endl;
     els->GenerateIR();
     if (!block_ret)
       std::cout << "  jump %end" << now_if << std::endl;
-    std::cout << std::endl;
     block_ret = false;
+    std::cout << std::endl;
 
     std::cout << "%end" << now_if << ":" << std::endl;
   }
@@ -753,14 +756,48 @@ public:
 
   void Dump() const override
   {
+    circ_cnt++;
+    parentcirc[circ_cnt] = now_circ;
+    now_circ = circ_cnt;
     std::cout << "WhileStmtAST { ";
     e->Dump();
     std::cout << ", ";
     ws->Dump();
     std::cout << " }";
+    now_circ = parentcirc[now_circ];
+    std::cout << now_circ;
   }
   void GenerateIR() const override
   {
+    circ_cnt++;
+    parentcirc[circ_cnt] = now_circ;
+    now_circ = circ_cnt;
+    int now_w = now_circ;
+
+    std::cout << "  jump %while_entry" << now_w << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "%while_entry" << now_w << ":" << std::endl;
+    if (e->isnum())
+    {
+      std::cout << "  %" << now_ << " = ne ";
+      e->GenerateIR();
+      std::cout << ", 0" << endl;
+      now_++;
+    }
+    else
+      e->GenerateIR();
+    std::cout << "  br %" << now_ - 1 << ", %whilebody" << now_w << ", %whileend" << now_w << endl;
+    std::cout << endl;
+
+    std::cout << "%whilebody" << now_w << ":" << endl;
+    ws->GenerateIR();
+    if (!block_ret)
+      std::cout << "  jump %while_entry" << now_w << endl;
+    block_ret = false;
+    now_circ = parentcirc[now_circ];
+    std::cout << std::endl;
+    std::cout << "%whileend" << now_w << ":" << endl;
   }
 };
 
@@ -777,6 +814,16 @@ public:
   }
   void GenerateIR() const override
   {
+    if (bc == "break")
+    {
+      std::cout << "  jump %whileend" << now_circ << std::endl;
+      block_ret = 1;
+    }
+    else
+    {
+      std::cout << "  jump %while_entry" << now_circ << std::endl;
+      block_ret = 1;
+    }
   }
 };
 
