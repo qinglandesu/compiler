@@ -545,7 +545,7 @@ public:
 class StmtAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> exp, l, b, ifs;
+  std::unique_ptr<BaseAST> exp, l, b, ifs, ws, bc;
   int type = 0;
   void Dump() const override
   {
@@ -576,6 +576,12 @@ public:
       break;
     case 8:
       ifs->Dump();
+      break;
+    case 9:
+      ws->Dump();
+      break;
+    case 10:
+      bc->Dump();
       break;
     default:
       break;
@@ -634,6 +640,12 @@ public:
       break;
     case 8:
       ifs->GenerateIR();
+      break;
+    case 9:
+      ws->GenerateIR();
+      break;
+    case 10:
+      bc->GenerateIR();
       break;
     default:
       break;
@@ -729,6 +741,42 @@ public:
     block_ret = false;
 
     std::cout << "%end" << now_if << ":" << std::endl;
+  }
+};
+
+// WhileStmt
+class WhileStmtAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> e, ws;
+
+  void Dump() const override
+  {
+    std::cout << "WhileStmtAST { ";
+    e->Dump();
+    std::cout << ", ";
+    ws->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// BreakContinueStmt
+class BCAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::string bc;
+
+  void Dump() const override
+  {
+    std::cout << "BCAST { " << bc << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 

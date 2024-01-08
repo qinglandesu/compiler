@@ -38,12 +38,12 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN CONST IF ELSE LOR LAND EQ NEQ GEQ LEQ
+%token INT RETURN CONST IF ELSE WHILE BREAK CONTINUE LOR LAND EQ NEQ GEQ LEQ
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block BType BlockItems BlockItem Stmt IfStmt IfElseStmt
+%type <ast_val> FuncDef FuncType Block BType BlockItems BlockItem Stmt IfStmt IfElseStmt WhileStmt BCStmt
                 Decl ConstDecl ConstDefList ConstDef ConstInitVal VarDecl VarDef VarDefList InitVal 
                 LeftVal LVal Number ConstExp Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
@@ -298,6 +298,18 @@ Stmt
     ast->ifs = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
+  | WhileStmt {
+    auto ast = new StmtAST();
+    ast->type = 9;
+    ast->ws = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | BCStmt {
+    auto ast = new StmtAST();
+    ast->type = 10;
+    ast->bc = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
   ;
 
 IfStmt
@@ -315,6 +327,28 @@ IfElseStmt
     ast->e = unique_ptr<BaseAST>($3);
     ast->ifs = unique_ptr<BaseAST>($5);
     ast->els = unique_ptr<BaseAST>($7);
+    $$ = ast;
+  }
+  ;
+
+WhileStmt
+  : WHILE '(' Exp ')' Stmt {
+    auto ast = new WhileStmtAST();
+    ast->e = unique_ptr<BaseAST>($3);
+    ast->ws = unique_ptr<BaseAST>($5);
+    $$ = ast;
+  }
+  ;
+
+BCStmt
+  : BREAK ';' {
+    auto ast = new BCAST();
+    ast->bc = "break";
+    $$ = ast;
+  }
+  | CONTINUE ';' {
+    auto ast = new BCAST();
+    ast->bc = "continue";
     $$ = ast;
   }
   ;
