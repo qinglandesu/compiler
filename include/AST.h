@@ -13,10 +13,16 @@ static int if_cnt = -1;
 static int now_circ = -1;
 static int circ_cnt = -1;
 static int parentcirc[256] = {0};
-static int now_block = -1;
-static int block_cnt = -1;
+static int now_block = 0;
+static int block_cnt = 0;
 static int parentblock[256] = {0};
 static bool block_ret = false;
+static bool paraminfunc = false;
+static bool temptype = false;
+static int param_num = 0;
+static std::vector<std::string> params_;
+static std::unordered_map<std::string, bool> func_ret;
+static std::unordered_map<std::string, int> func_params_num;
 static std::unordered_map<std::string, int> const_vals;
 static std::unordered_set<std::string> var_vals;
 
@@ -153,14 +159,29 @@ public:
   }
   void GenerateIR() const override
   {
+    now_ = 0;
     std::cout << "fun ";
-    std::cout << "@" << ident << "(): ";
+    std::cout << "@" << ident << "(";
+    if (p)
+      params->GenerateIR();
+    func_params_num[ident] = param_num;
+    param_num = 0;
+    std::cout << ")";
     func_type->GenerateIR();
+    func_ret[ident] = temptype;
     std::cout << "{" << endl;
-    std::cout << "%"
-              << "entry:" << endl;
+    std::cout << "%entry:" << endl;
+    if (p)
+    {
+      paraminfunc = true;
+      params->GenerateIR();
+      paraminfunc = false;
+    }
     block->GenerateIR();
-    std::cout << "}";
+    if (!block_ret)
+      std::cout << "  ret" << endl;
+    std::cout << "}" << endl;
+    std::cout << endl;
     block_ret = false;
   }
 };
@@ -178,9 +199,14 @@ public:
   void GenerateIR() const override
   {
     if (type == "int")
-      std::cout << "i32 ";
+    {
+      std::cout << ": i32 ";
+      temptype = true;
+    }
     else
-      ;
+    {
+      temptype = false;
+    }
   }
 };
 
@@ -197,14 +223,21 @@ public:
     std::cout << "FuncFParamsAST { ";
     p->Dump();
     if (s)
+    {
+      std::cout << ",";
       ps->Dump();
+    }
     std::cout << " }";
   }
   void GenerateIR() const override
   {
     p->GenerateIR();
     if (s)
+    {
+      if (!paraminfunc)
+        std::cout << ",";
       ps->GenerateIR();
+    }
   }
 };
 
@@ -225,6 +258,17 @@ public:
   }
   void GenerateIR() const override
   {
+    if (paraminfunc)
+    {
+      std::cout << "  %" << ident << " = alloc i32" << endl;
+      std::cout << "  store @" << ident << ", %" << ident << endl;
+    }
+    else
+    {
+      std::cout << "@" << ident << ": i32";
+      param_num++;
+      var_vals.insert(ident);
+    }
   }
 };
 
@@ -591,20 +635,28 @@ public:
   void GenerateIR() const override
   {
     int tempblock = now_block;
-    while (tempblock != -1)
+    if (var_vals.count(ident) > 0)
     {
-      if (const_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+      std::cout << "  %" << now_ << " = load %" << ident << endl;
+      now_++;
+    }
+    else
+    {
+      while (tempblock != -1)
       {
-        std::cout << const_vals[ident + "_" + std::to_string(tempblock)];
-        break;
+        if (const_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+        {
+          std::cout << const_vals[ident + "_" + std::to_string(tempblock)];
+          break;
+        }
+        if (var_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
+        {
+          std::cout << "  %" << now_ << " = load @" << ident + "_" + std::to_string(tempblock) << endl;
+          now_++;
+          break;
+        }
+        tempblock = parentblock[tempblock];
       }
-      if (var_vals.count(ident + "_" + std::to_string(tempblock)) > 0)
-      {
-        std::cout << "  %" << now_ << " = load @" << ident + "_" + std::to_string(tempblock) << endl;
-        now_++;
-        break;
-      }
-      tempblock = parentblock[tempblock];
     }
   }
   int calc() const override
@@ -617,6 +669,10 @@ public:
   }
   bool isnum() const override
   {
+    if (var_vals.count(ident) > 0)
+    {
+      return false;
+    }
     int tempblock = now_block;
     while (tempblock != -1)
     {
@@ -645,11 +701,18 @@ public:
   }
   void GenerateIR() const override
   {
-    int tempblock = now_block;
-    while (tempblock != -1 && var_vals.count(ident + "_" + std::to_string(tempblock)) == 0)
-      tempblock = parentblock[tempblock];
-    string ident_ = ident + "_" + std::to_string(tempblock);
-    std::cout << ident_;
+    if (var_vals.count(ident) > 0)
+    {
+      std::cout << "%" << ident;
+    }
+    else
+    {
+      int tempblock = now_block;
+      while (tempblock != -1 && var_vals.count(ident + "_" + std::to_string(tempblock)) == 0)
+        tempblock = parentblock[tempblock];
+      string ident_ = ident + "_" + std::to_string(tempblock);
+      std::cout << "@" << ident_;
+    }
   }
 };
 
@@ -709,14 +772,14 @@ public:
       {
         std::cout << "  store ";
         exp->GenerateIR();
-        std::cout << ", @";
+        std::cout << ", ";
         l->GenerateIR();
         std::cout << endl;
       }
       else
       {
         exp->GenerateIR();
-        std::cout << "  store %" << now_ - 1 << ", @";
+        std::cout << "  store %" << now_ - 1 << ", ";
         l->GenerateIR();
         std::cout << endl;
       }
@@ -1086,8 +1149,7 @@ public:
   void GenerateIR() const override
   {
     if (func)
-    {
-    }
+      f->GenerateIR();
     else
     {
       switch (op)
@@ -1190,13 +1252,52 @@ public:
   void Dump() const override
   {
     std::cout << "FuncExpAST { ";
-    std::cout << ", " << ident << " ";
+    std::cout << ident << " ";
     if (p)
       param->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
+    if (p)
+      param->GenerateIR();
+    if (func_ret[ident])
+    {
+      std::cout << "  %" << now_ << " = call @" << ident << "(";
+      now_++;
+      if (p)
+      {
+        for (auto it = params_.end() - func_params_num[ident]; it != params_.end(); it++)
+        {
+          if (it != params_.end() - func_params_num[ident])
+            std::cout << ',';
+          std::cout << *it;
+        }
+        for (int i = func_params_num[ident]; i > 0; i--)
+        {
+          params_.pop_back();
+        }
+      }
+      std::cout << ")" << endl;
+    }
+    else
+    {
+      std::cout << "  call @" << ident << "(";
+      if (p)
+      {
+        for (auto it = params_.end() - func_params_num[ident]; it != params_.end(); it++)
+        {
+          if (it != params_.end() - func_params_num[ident])
+            std::cout << ',';
+          std::cout << *it;
+        }
+        for (int i = func_params_num[ident]; i > 0; i--)
+        {
+          params_.pop_back();
+        }
+      }
+      std::cout << ")" << endl;
+    }
   }
 };
 
@@ -1239,6 +1340,17 @@ public:
   }
   void GenerateIR() const override
   {
+    if (exp->isnum())
+      params_.push_back(to_string(exp->calc()));
+    else
+    {
+      exp->GenerateIR();
+      params_.push_back("%" + to_string(now_ - 1));
+    }
+  }
+  bool isnum() const override
+  {
+    return exp->isnum();
   }
 };
 
@@ -1282,6 +1394,7 @@ public:
   {
     switch (op)
     {
+      cout << "m" << endl;
     case NONE:
       ue->GenerateIR();
       break;
@@ -1659,16 +1772,19 @@ public:
       }
       else if (lae->isnum())
       {
-        std::cout << "  %" << now_ << " = ne ";
-        lae->GenerateIR();
-        std::cout << ", 0" << endl;
-        int tempnow_ = now_;
-        now_++;
-        ee->GenerateIR();
-        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
-        now_++;
-        std::cout << "  %" << now_ << " = and %" << tempnow_ << ", %" << now_ - 1 << endl;
-        now_++;
+        if (!lae->calc())
+        {
+          std::cout << "  %" << now_ << " = ne ";
+          lae->GenerateIR();
+          std::cout << ", 0" << endl;
+          now_++;
+        }
+        else
+        {
+          ee->GenerateIR();
+          std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+          now_++;
+        }
       }
       else if (ee->isnum())
       {
@@ -1791,13 +1907,19 @@ public:
       }
       else if (loe->isnum())
       {
-        lae->GenerateIR();
-        std::cout << "  %" << now_ << " = or ";
-        loe->GenerateIR();
-        std::cout << ", %" << now_ - 1 << endl;
-        now_++;
-        std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
-        now_++;
+        if (loe->calc())
+        {
+          std::cout << "  %" << now_ << " = ne ";
+          loe->GenerateIR();
+          std::cout << ", 0" << endl;
+          now_++;
+        }
+        else
+        {
+          lae->GenerateIR();
+          std::cout << "  %" << now_ << " = ne %" << now_ - 1 << ", 0" << endl;
+          now_++;
+        }
       }
       else if (lae->isnum())
       {
