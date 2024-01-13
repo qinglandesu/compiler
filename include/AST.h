@@ -74,17 +74,60 @@ class CompUnitAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> func_def;
+  std::unique_ptr<BaseAST> cus;
 
   void Dump() const override
   {
     std::cout << "CompUnitAST { ";
-    func_def->Dump();
+    cus->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    func_def->GenerateIR();
+    cus->GenerateIR();
+  }
+};
+
+// CompUnits
+class CompUnitsAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> cu, cus;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "CompUnitsAST { ";
+    cu->Dump();
+    if (s)
+      cus->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    cu->GenerateIR();
+    if (s)
+      cus->GenerateIR();
+  }
+};
+
+// SinCompUnit
+class SinCompUnitAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> df;
+
+  void Dump() const override
+  {
+    std::cout << "SinCompUnitAST { ";
+    df->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    df->GenerateIR();
   }
 };
 
@@ -94,13 +137,17 @@ class FuncDefAST : public BaseAST
 public:
   std::unique_ptr<BaseAST> func_type;
   std::string ident;
+  std::unique_ptr<BaseAST> params;
   std::unique_ptr<BaseAST> block;
+  bool p = false;
 
   void Dump() const override
   {
     std::cout << "FuncDefAST { ";
     func_type->Dump();
-    std::cout << ", " << ident << ", ";
+    std::cout << ", " << ident << " ";
+    if (p)
+      params->Dump();
     block->Dump();
     std::cout << " }";
   }
@@ -131,9 +178,71 @@ public:
   void GenerateIR() const override
   {
     if (type == "int")
-    {
       std::cout << "i32 ";
-    }
+    else
+      ;
+  }
+};
+
+// FuncFParams
+class FuncFParamsAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> p, ps;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "FuncFParamsAST { ";
+    p->Dump();
+    if (s)
+      ps->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    p->GenerateIR();
+    if (s)
+      ps->GenerateIR();
+  }
+};
+
+// FuncFParam
+class FuncFParamAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> bt;
+  std::string ident;
+
+  void Dump() const override
+  {
+    std::cout << "VarDeclAST { ";
+    bt->Dump();
+    std::cout << ", " << ident;
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// GloDecl
+class GloDeclAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> d;
+
+  void Dump() const override
+  {
+    std::cout << "GloDeclAST { ";
+    d->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
@@ -142,17 +251,17 @@ class DeclAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> cv;
+  std::unique_ptr<BaseAST> d;
 
   void Dump() const override
   {
     std::cout << "DeclAST { ";
-    cv->Dump();
+    d->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    cv->GenerateIR();
+    d->GenerateIR();
   }
 };
 
@@ -941,73 +1050,87 @@ class UnaryExpAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> pu;
+  std::unique_ptr<BaseAST> pu, f;
   Op op;
+  bool func = false;
 
   void Dump() const override
   {
     std::cout << "UnaryExpAST { ";
-    switch (op)
+    if (func)
     {
-    case NONE:
-      break;
-    case PLUS:
-      std::cout << "+, ";
-      break;
-    case MINUS:
-      std::cout << "-, ";
-      break;
-    case NOT:
-      std::cout << "!, ";
-      break;
-    default:
-      break;
+      f->Dump();
     }
-    pu->Dump();
+    else
+    {
+      switch (op)
+      {
+      case NONE:
+        break;
+      case PLUS:
+        std::cout << "+, ";
+        break;
+      case MINUS:
+        std::cout << "-, ";
+        break;
+      case NOT:
+        std::cout << "!, ";
+        break;
+      default:
+        break;
+      }
+      pu->Dump();
+    }
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    switch (op)
+    if (func)
     {
-    case NONE:
-      pu->GenerateIR();
-      break;
-    case PLUS:
-      pu->GenerateIR();
-      break;
-    case MINUS:
-      if (pu->isnum())
+    }
+    else
+    {
+      switch (op)
       {
-        std::cout << "  %" << now_ << " = sub 0 , ";
+      case NONE:
         pu->GenerateIR();
-        std::cout << endl;
-        now_++;
-      }
-      else
-      {
+        break;
+      case PLUS:
         pu->GenerateIR();
-        std::cout << "  %" << now_ << " = sub 0 , %" << now_ - 1 << endl;
-        now_++;
+        break;
+      case MINUS:
+        if (pu->isnum())
+        {
+          std::cout << "  %" << now_ << " = sub 0 , ";
+          pu->GenerateIR();
+          std::cout << endl;
+          now_++;
+        }
+        else
+        {
+          pu->GenerateIR();
+          std::cout << "  %" << now_ << " = sub 0 , %" << now_ - 1 << endl;
+          now_++;
+        }
+        break;
+      case NOT:
+        if (pu->isnum())
+        {
+          std::cout << "  %" << now_ << " = eq ";
+          pu->GenerateIR();
+          std::cout << ", 0" << endl;
+          now_++;
+        }
+        else
+        {
+          pu->GenerateIR();
+          std::cout << "  %" << now_ << " = eq %" << now_ - 1 << ", 0" << endl;
+          now_++;
+        }
+        break;
+      default:
+        break;
       }
-      break;
-    case NOT:
-      if (pu->isnum())
-      {
-        std::cout << "  %" << now_ << " = eq ";
-        pu->GenerateIR();
-        std::cout << ", 0" << endl;
-        now_++;
-      }
-      else
-      {
-        pu->GenerateIR();
-        std::cout << "  %" << now_ << " = eq %" << now_ - 1 << ", 0" << endl;
-        now_++;
-      }
-      break;
-    default:
-      break;
     }
   }
   int calc() const override
@@ -1033,20 +1156,89 @@ public:
   }
   bool isnum() const override
   {
-    switch (op)
+    if (func)
+      return false;
+    else
     {
-    case NONE:
-      return pu->isnum();
-    case PLUS:
-      return pu->isnum();
-    case MINUS:
-    case NOT:
-      return false;
-      break;
-    default:
-      return false;
-      break;
+      switch (op)
+      {
+      case NONE:
+        return pu->isnum();
+      case PLUS:
+        return pu->isnum();
+      case MINUS:
+      case NOT:
+        return false;
+        break;
+      default:
+        return false;
+        break;
+      }
     }
+  }
+};
+
+// FuncExp
+class FuncExpAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> param;
+  std::string ident;
+  bool p = false;
+
+  void Dump() const override
+  {
+    std::cout << "FuncExpAST { ";
+    std::cout << ", " << ident << " ";
+    if (p)
+      param->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// FuncRParams
+class FuncRParamsAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> p, ps;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "FuncRParamsAST { ";
+    p->Dump();
+    if (s)
+      ps->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    p->GenerateIR();
+    if (s)
+      ps->GenerateIR();
+  }
+};
+
+// FuncRParam
+class FuncRParamAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> exp;
+
+  void Dump() const override
+  {
+    std::cout << "FuncRParamAST { ";
+    exp->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
