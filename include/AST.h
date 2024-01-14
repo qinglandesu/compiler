@@ -126,7 +126,7 @@ class SinCompUnitAST : public BaseAST
 public:
   // 用智能指针管理对象
   std::unique_ptr<BaseAST> t, de;
-  int type;
+  bool c;
 
   void Dump() const override
   {
@@ -136,7 +136,7 @@ public:
   }
   void GenerateIR() const override
   {
-    if (type == 0)
+    if (!c)
       t->GenerateIR();
     de->GenerateIR();
   }
@@ -174,9 +174,9 @@ public:
   void GenerateIR() const override
   {
     if (type == "int")
-      temptype = true;
+      temptype = 1;
     else
-      temptype = false;
+      temptype = 0;
   }
 };
 
@@ -390,6 +390,7 @@ public:
   }
   void GenerateIR() const override
   {
+    cdl->glo = glo;
     cdl->GenerateIR();
   }
 };
@@ -419,7 +420,10 @@ public:
     for (const auto &def : constdeflist)
     {
       if (def) // 确保指针非空
+      {
+        def->glo = glo;
         def->GenerateIR();
+      }
     }
   }
 };
@@ -429,20 +433,105 @@ class ConstDefAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> civ;
+  std::unique_ptr<BaseAST> civ, size;
   std::string ident;
+  bool arr = false;
 
   void Dump() const override
   {
     std::cout << "ConstDefAST { ";
     std::cout << ident << ", ";
+    if (arr)
+      size->Dump();
     civ->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    string ident_ = ident + "_" + std::to_string(now_block);
-    const_vals[ident_] = civ->calc();
+    if (arr)
+    {
+    }
+    else
+    {
+      string ident_ = ident + "_" + std::to_string(now_block);
+      const_vals[ident_] = civ->calc();
+    }
+  }
+};
+
+// ArraySize
+class ArraySizeAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> ce, as;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "ArraySizeAST { ";
+    ce->Dump();
+    if (s)
+      as->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+//
+class ConstArrayInitValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> av;
+  bool empty = false;
+
+  void Dump() const override
+  {
+    std::cout << "ConstArrayInitValAST { ";
+    if (!empty)
+      av->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ConstArrayVal
+class ConstArrayValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> iv, av, aiv;
+  int type;
+
+  void Dump() const override
+  {
+    std::cout << "ConstArrayValAST { ";
+    switch (type)
+    {
+    case 0:
+      iv->Dump();
+      break;
+    case 1:
+      iv->Dump();
+      av->Dump();
+      break;
+    case 2:
+      aiv->Dump();
+      break;
+    case 3:
+      aiv->Dump();
+      av->Dump();
+      break;
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
@@ -528,14 +617,17 @@ class VarDefAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> iv;
+  std::unique_ptr<BaseAST> iv, size;
   std::string ident;
   bool init = false;
+  bool arr = false;
 
   void Dump() const override
   {
-    std::cout << "ConstDefAST { ";
-    std::cout << ", " << ident << ", ";
+    std::cout << "VarDefAST { ";
+    std::cout << ident << ", ";
+    if (arr)
+      size->Dump();
     if (init)
       iv->Dump();
     std::cout << " }";
@@ -544,7 +636,7 @@ public:
   {
     if (glo)
     {
-      string ident_ = ident + "_" + std::to_string(0);
+      string ident_ = ident + "_" + std::to_string(now_block);
       var_vals.insert(ident_);
       std::cout << "global  @" << ident_ << " = alloc i32, ";
       if (init)
@@ -572,6 +664,61 @@ public:
         }
       }
     }
+  }
+};
+
+// ArrayInitVal
+class ArrayInitValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> av;
+  bool empty = false;
+
+  void Dump() const override
+  {
+    std::cout << "ArrayInitValAST { ";
+    if (!empty)
+      av->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ArrayVal
+class ArrayValAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> iv, av, aiv;
+  int type;
+
+  void Dump() const override
+  {
+    std::cout << "ArrayValAST { ";
+    switch (type)
+    {
+    case 0:
+      iv->Dump();
+      break;
+    case 1:
+      iv->Dump();
+      av->Dump();
+      break;
+    case 2:
+      aiv->Dump();
+      break;
+    case 3:
+      aiv->Dump();
+      av->Dump();
+      break;
+    }
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
   }
 };
 
@@ -686,6 +833,33 @@ public:
   }
 };
 
+// AllLval
+class AllLvalAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> lval;
+
+  void Dump() const override
+  {
+    std::cout << "AllLvalAST { ";
+    lval->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    lval->GenerateIR();
+  }
+  int calc() const override
+  {
+    return lval->calc();
+  }
+  bool isnum() const override
+  {
+    return lval->isnum();
+  }
+};
+
 // LVal
 class LValAST : public BaseAST
 {
@@ -753,17 +927,61 @@ public:
   }
 };
 
+// ArrayLval
+class ArrayLvalAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> p;
+  std::string ident;
+
+  void Dump() const override
+  {
+    std::cout << "ArrayLvalAST { " << ident << " ";
+    p->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
+// ArrayPara
+class ArrayParaAST : public BaseAST
+{
+public:
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> e, ap;
+  bool s = false;
+
+  void Dump() const override
+  {
+    std::cout << "ArrayParaAST { ";
+    e->Dump();
+    if (s)
+      ap->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+  }
+};
+
 // LeftVal
 class LeftValAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
   std::string ident;
+  std::unique_ptr<BaseAST> ap;
+  bool arr = false;
 
   void Dump() const override
   {
     std::cout << "LeftValAST { ";
-    std::cout << ident;
+    std::cout << ident << " ";
+    if (arr)
+      ap->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
@@ -922,17 +1140,17 @@ public:
     }
     else
       e->GenerateIR();
-    std::cout << "  br %" << now_ - 1 << ", %then" << now_if << ", %end" << now_if << endl;
+    std::cout << "  br %" << now_ - 1 << ", %if_then" << now_if << ", %if_end" << now_if << endl;
     std::cout << endl;
 
-    std::cout << "%then" << now_if << ":" << endl;
+    std::cout << "%if_then" << now_if << ":" << endl;
     ifs->GenerateIR();
     if (!block_ret)
-      std::cout << "  jump %end" << now_if << endl;
+      std::cout << "  jump %if_end" << now_if << endl;
     block_ret = false;
     std::cout << std::endl;
 
-    std::cout << "%end" << now_if << ":" << endl;
+    std::cout << "%if_end" << now_if << ":" << endl;
   }
 };
 
@@ -966,27 +1184,27 @@ public:
     }
     else
       e->GenerateIR();
-    std::cout << "  br %" << now_ - 1 << ", %then" << now_if << ", %else" << now_if << std::endl;
+    std::cout << "  br %" << now_ - 1 << ", %if_then" << now_if << ", %if_else" << now_if << std::endl;
     std::cout << std::endl;
 
-    std::cout << "%then" << now_if << ":" << std::endl;
+    std::cout << "%if_then" << now_if << ":" << std::endl;
     ifs->GenerateIR();
     temp_ret = block_ret;
     if (!block_ret)
-      std::cout << "  jump %end" << now_if << std::endl;
+      std::cout << "  jump %if_end" << now_if << std::endl;
     block_ret = false;
     std::cout << std::endl;
 
-    std::cout << "%else" << now_if << ":" << std::endl;
+    std::cout << "%if_else" << now_if << ":" << std::endl;
     els->GenerateIR();
     temp_ret = temp_ret && block_ret;
     if (!block_ret)
-      std::cout << "  jump %end" << now_if << std::endl;
+      std::cout << "  jump %if_end" << now_if << std::endl;
     block_ret = temp_ret;
     std::cout << std::endl;
 
     if (!block_ret)
-      std::cout << "%end" << now_if << ":" << std::endl;
+      std::cout << "%if_end" << now_if << ":" << std::endl;
   }
 };
 
@@ -1030,17 +1248,17 @@ public:
     }
     else
       e->GenerateIR();
-    std::cout << "  br %" << now_ - 1 << ", %whilebody" << now_w << ", %whileend" << now_w << endl;
+    std::cout << "  br %" << now_ - 1 << ", %while_body" << now_w << ", %while_end" << now_w << endl;
     std::cout << endl;
 
-    std::cout << "%whilebody" << now_w << ":" << endl;
+    std::cout << "%while_body" << now_w << ":" << endl;
     ws->GenerateIR();
     if (!block_ret)
       std::cout << "  jump %while_entry" << now_w << endl;
     block_ret = false;
     now_circ = parentcirc[now_circ];
     std::cout << std::endl;
-    std::cout << "%whileend" << now_w << ":" << endl;
+    std::cout << "%while_end" << now_w << ":" << endl;
   }
 };
 
@@ -1061,7 +1279,7 @@ public:
     {
       if (bc == "break")
       {
-        std::cout << "  jump %whileend" << now_circ << std::endl;
+        std::cout << "  jump %while_end" << now_circ << std::endl;
         block_ret = 1;
       }
       else

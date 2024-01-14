@@ -47,7 +47,9 @@ using namespace std;
                 Block BType BlockItems BlockItem
                 Stmt IfStmt IfElseStmt WhileStmt BCStmt
                 GloDecl Decl ConstDecl ConstDefList ConstDef ConstInitVal VarDecl VarDef VarDefList InitVal 
-                LeftVal LVal Number ConstExp Exp FuncExp FuncRParams FuncRParam PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
+                ArraySize ConstArrayInitVal ConstArrayVal ArrayInitVal ArrayVal
+                AllLval LeftVal LVal ArrayLval ArrayPara
+                Number ConstExp Exp FuncExp FuncRParams FuncRParam PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
 
@@ -82,15 +84,14 @@ CompUnits
 
 SinCompUnit
   : FuncType De {
-    auto ast=new SinCompUnitAST();
-    ast->type = 0;
-    ast->t=unique_ptr<BaseAST>($1);
-    ast->de=unique_ptr<BaseAST>($2);
+    auto ast = new SinCompUnitAST();
+    ast->t = unique_ptr<BaseAST>($1);
+    ast->de = unique_ptr<BaseAST>($2);
     $$=ast;
   }
   | ConstDecl {
     auto ast = new SinCompUnitAST();
-    ast->type = 1;
+    ast->c = true;
     ast->de = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
@@ -98,22 +99,22 @@ SinCompUnit
 
 De
   : GloDecl {
-    auto ast=new DeAST();
-    ast->gf=unique_ptr<BaseAST>($1);
+    auto ast = new DeAST();
+    ast->gf = unique_ptr<BaseAST>($1);
     $$=ast;
   }
   | FuncDef {
-    auto ast=new DeAST();
-    ast->gf=unique_ptr<BaseAST>($1);
-    $$=ast;
+    auto ast = new DeAST();
+    ast->gf = unique_ptr<BaseAST>($1);
+    $$ = ast;
   }
   ;
 
 GloDecl
   : VarDefList ';' {
     auto ast = new GloDeclAST();
-    ast->d=unique_ptr<BaseAST>($1);
-    $$=ast;
+    ast->d = unique_ptr<BaseAST>($1);
+    $$ = ast;
   }
   ;
 
@@ -230,6 +231,71 @@ ConstDef
     ast->ident = *unique_ptr<string>($1);
     ast->civ = unique_ptr<BaseAST>($3);
     $$ = ast;
+  };
+  | IDENT ArraySize '=' ConstArrayInitVal {
+    auto ast = new ConstDefAST();
+    ast->arr = true;
+    ast->ident = *unique_ptr<string>($1);
+    ast->size = unique_ptr<BaseAST>($2);
+    ast->civ = unique_ptr<BaseAST>($4);
+    $$=ast;
+  }
+  ;
+
+ArraySize
+  : '[' ConstExp ']' {
+    auto ast = new ArraySizeAST();
+    ast->ce = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | '[' ConstExp ']' ArraySize {
+    auto ast = new ArraySizeAST();
+    ast->s = true;
+    ast->ce = unique_ptr<BaseAST>($2);
+    ast->as = unique_ptr<BaseAST>($4);
+    $$ = ast;
+  }
+  ;
+
+ConstArrayInitVal
+  : '{' ConstArrayVal '}' {
+    auto ast = new ConstArrayInitValAST();
+    ast->av = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new ConstArrayInitValAST();
+    ast->empty = true;
+    $$ = ast;
+  }
+  ;
+
+ConstArrayVal
+  : ConstInitVal {
+    auto ast = new ConstArrayValAST();
+    ast->type = 0;
+    ast->iv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ConstInitVal ',' ConstArrayVal {
+    auto ast = new ConstArrayValAST();
+    ast->type = 1;
+    ast->iv = unique_ptr<BaseAST>($1);
+    ast->av = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | ConstArrayInitVal {
+    auto ast = new ConstArrayValAST();
+    ast->type = 2;
+    ast->aiv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ConstArrayInitVal ',' ConstArrayVal {
+    auto ast = new ConstArrayValAST();
+    ast->type = 3;
+    ast->aiv = unique_ptr<BaseAST>($1);
+    ast->av = unique_ptr<BaseAST>($3);
+    $$ = ast;
   }
   ;
 
@@ -273,6 +339,60 @@ VarDef
     ast->ident = *unique_ptr<string>($1);
     ast->init = true;
     ast->iv = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | IDENT ArraySize {
+    auto ast = new VarDefAST();
+    ast->arr = true;
+    ast->ident = *unique_ptr<string>($1);
+    ast->size = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | IDENT ArraySize '=' ArrayInitVal {
+    auto ast = new VarDefAST();
+    ast->arr = true;
+    ast->init = true;
+    ast->ident = *unique_ptr<string>($1);
+    ast->size = unique_ptr<BaseAST>($2);
+    ast->iv = unique_ptr<BaseAST>($4);
+    $$ = ast;
+  }
+  ;
+
+ArrayInitVal
+  : '{' ArrayVal '}' {
+    auto ast = new ArrayInitValAST();
+    ast->av = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new ArrayInitValAST();
+    ast->empty = true;
+    $$ = ast;
+  }
+  ;
+
+ArrayVal
+  : InitVal {
+    auto ast = new ArrayValAST();
+    ast->iv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | InitVal ',' ArrayVal {
+    auto ast = new ArrayValAST();
+    ast->iv = unique_ptr<BaseAST>($1);
+    ast->av = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | ArrayInitVal {
+    auto ast = new ArrayValAST();
+    ast->aiv = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ArrayInitVal ',' ArrayVal {
+    auto ast = new ArrayValAST();
+    ast->aiv = unique_ptr<BaseAST>($1);
+    ast->av = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;
@@ -326,11 +446,48 @@ BlockItem
   }
   ;
 
+AllLval
+  : LVal {
+    auto ast = new AllLvalAST();
+    ast->lval = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ArrayLval {
+    auto ast = new AllLvalAST();
+    ast->lval = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
 LVal
   : IDENT {
     auto ast = new LValAST();
     ast->ident = *unique_ptr<string>($1);
-    $$=ast;
+    $$ = ast;
+  }
+  ;
+
+ArrayLval
+  : IDENT ArrayPara {
+    auto ast = new ArrayLvalAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->p = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+ArrayPara
+  : '[' Exp ']' {
+    auto ast = new ArrayParaAST();
+    ast->e = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | '[' Exp ']' ArrayPara {
+    auto ast = new ArrayParaAST();
+    ast->s = true;
+    ast->e = unique_ptr<BaseAST>($2);
+    ast->ap = unique_ptr<BaseAST>($4);
+    $$ = ast;
   }
   ;
 
@@ -339,6 +496,13 @@ LeftVal
     auto ast = new LeftValAST();
     ast->ident = *unique_ptr<string>($1);
     $$=ast;
+  }
+  | IDENT ArrayPara {
+    auto ast = new LeftValAST();
+    ast->arr = true;
+    ast->ident = *unique_ptr<string>($1);
+    ast->ap = unique_ptr<BaseAST>($2);
+    $$ = ast;
   }
   ;
 
@@ -474,7 +638,7 @@ PrimaryExp
     ast->eln = unique_ptr<BaseAST>($2);
     $$=ast;
   }
-  | LVal {
+  | AllLval {
     auto ast = new PrimaryExpAST();
     ast->eln = unique_ptr<BaseAST>($1);
     $$=ast;
