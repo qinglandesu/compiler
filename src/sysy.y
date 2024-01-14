@@ -43,7 +43,7 @@ using namespace std;
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> CompUnits SinCompUnit FuncDef FuncType FuncFParams FuncFParam 
+%type <ast_val> CompUnits SinCompUnit De FuncDef FuncType FuncFParams FuncFParam 
                 Block BType BlockItems BlockItem
                 Stmt IfStmt IfElseStmt WhileStmt BCStmt
                 GloDecl Decl ConstDecl ConstDefList ConstDef ConstInitVal VarDecl VarDef VarDefList InitVal 
@@ -81,14 +81,38 @@ CompUnits
   ;
 
 SinCompUnit
-  : GloDecl {
+  : FuncType De {
     auto ast=new SinCompUnitAST();
-    ast->df=unique_ptr<BaseAST>($1);
+    ast->type = 0;
+    ast->t=unique_ptr<BaseAST>($1);
+    ast->de=unique_ptr<BaseAST>($2);
+    $$=ast;
+  }
+  | ConstDecl {
+    auto ast = new SinCompUnitAST();
+    ast->type = 1;
+    ast->de = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+De
+  : GloDecl {
+    auto ast=new DeAST();
+    ast->gf=unique_ptr<BaseAST>($1);
     $$=ast;
   }
   | FuncDef {
-    auto ast=new SinCompUnitAST();
-    ast->df=unique_ptr<BaseAST>($1);
+    auto ast=new DeAST();
+    ast->gf=unique_ptr<BaseAST>($1);
+    $$=ast;
+  }
+  ;
+
+GloDecl
+  : VarDefList ';' {
+    auto ast = new GloDeclAST();
+    ast->d=unique_ptr<BaseAST>($1);
     $$=ast;
   }
   ;
@@ -104,20 +128,18 @@ SinCompUnit
 // 虽然此处你看不出用 unique_ptr 和手动 delete 的区别, 但当我们定义了 AST 之后
 // 这种写法会省下很多内存管理的负担
 FuncDef
-  : FuncType IDENT '(' ')' Block {
+  : IDENT '(' ')' Block {
     auto ast = new FuncDefAST();
-    ast->func_type = unique_ptr<BaseAST>($1);
-    ast->ident = *unique_ptr<string>($2);
-    ast->block = unique_ptr<BaseAST>($5);
+    ast->ident = *unique_ptr<string>($1);
+    ast->block = unique_ptr<BaseAST>($4);
     $$ = ast;
   }
-  | FuncType IDENT '(' FuncFParams ')' Block {
+  | IDENT '(' FuncFParams ')' Block {
     auto ast = new FuncDefAST();
-    ast->func_type = unique_ptr<BaseAST>($1);
-    ast->ident = *unique_ptr<string>($2);
+    ast->ident = *unique_ptr<string>($1);
     ast->p = true;
-    ast->params = unique_ptr<BaseAST>($4);
-    ast->block = unique_ptr<BaseAST>($6);
+    ast->params = unique_ptr<BaseAST>($3);
+    ast->block = unique_ptr<BaseAST>($5);
     $$ = ast;
   }
   ;
@@ -160,21 +182,13 @@ FuncFParam
   }
   ;
 
-GloDecl
-  : Decl {
-    auto ast = new GloDeclAST();
-    ast->d=unique_ptr<BaseAST>($1);
-    $$=ast;
-  }
-  ;
-
 Decl
-  : ConstDecl {
+  : VarDecl {
     auto ast = new DeclAST();
     ast->d = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  | VarDecl {
+  | ConstDecl {
     auto ast = new DeclAST();
     ast->d = unique_ptr<BaseAST>($1);
     $$ = ast;
@@ -249,7 +263,7 @@ VarDefList
  ;
 
 VarDef
-  :IDENT {
+  : IDENT {
     auto ast = new VarDefAST();
     ast->ident = *unique_ptr<string>($1);
     $$ = ast;

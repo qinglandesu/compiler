@@ -15,8 +15,9 @@ static int circ_cnt = -1;
 static int parentcirc[256] = {0};
 static int now_block = 0;
 static int block_cnt = 0;
-static int parentblock[256] = {0};
+static int parentblock[512] = {0};
 static bool block_ret = false;
+static bool decl = false;
 static bool paraminfunc = false;
 static bool temptype = false;
 static int param_num = 0;
@@ -30,6 +31,7 @@ static std::unordered_set<std::string> var_vals;
 class BaseAST
 {
 public:
+  bool glo = false;
   virtual ~BaseAST() = default;
   virtual bool isnum() const { return false; }
   virtual void Dump() const = 0;
@@ -123,66 +125,39 @@ class SinCompUnitAST : public BaseAST
 {
 public:
   // 用智能指针管理对象
-  std::unique_ptr<BaseAST> df;
+  std::unique_ptr<BaseAST> t, de;
+  int type;
 
   void Dump() const override
   {
     std::cout << "SinCompUnitAST { ";
-    df->Dump();
+    de->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    df->GenerateIR();
+    if (type == 0)
+      t->GenerateIR();
+    de->GenerateIR();
   }
 };
 
-// FuncDef 也是 BaseAST
-class FuncDefAST : public BaseAST
+// De
+class DeAST : public BaseAST
 {
 public:
-  std::unique_ptr<BaseAST> func_type;
-  std::string ident;
-  std::unique_ptr<BaseAST> params;
-  std::unique_ptr<BaseAST> block;
-  bool p = false;
+  // 用智能指针管理对象
+  std::unique_ptr<BaseAST> gf;
 
   void Dump() const override
   {
-    std::cout << "FuncDefAST { ";
-    func_type->Dump();
-    std::cout << ", " << ident << " ";
-    if (p)
-      params->Dump();
-    block->Dump();
+    std::cout << "DeAST { ";
+    gf->Dump();
     std::cout << " }";
   }
   void GenerateIR() const override
   {
-    now_ = 0;
-    std::cout << "fun ";
-    std::cout << "@" << ident << "(";
-    if (p)
-      params->GenerateIR();
-    func_params_num[ident] = param_num;
-    param_num = 0;
-    std::cout << ")";
-    func_type->GenerateIR();
-    func_ret[ident] = temptype;
-    std::cout << "{" << endl;
-    std::cout << "%entry:" << endl;
-    if (p)
-    {
-      paraminfunc = true;
-      params->GenerateIR();
-      paraminfunc = false;
-    }
-    block->GenerateIR();
-    if (!block_ret)
-      std::cout << "  ret" << endl;
-    std::cout << "}" << endl;
-    std::cout << endl;
-    block_ret = false;
+    gf->GenerateIR();
   }
 };
 
@@ -199,14 +174,81 @@ public:
   void GenerateIR() const override
   {
     if (type == "int")
-    {
-      std::cout << ": i32 ";
       temptype = true;
-    }
     else
-    {
       temptype = false;
+  }
+};
+
+// FuncDef
+class FuncDefAST : public BaseAST
+{
+public:
+  std::string ident;
+  std::unique_ptr<BaseAST> params;
+  std::unique_ptr<BaseAST> block;
+  bool p = false;
+
+  void Dump() const override
+  {
+    std::cout << "FuncDefAST { ";
+    std::cout << ident << " ";
+    if (p)
+      params->Dump();
+    block->Dump();
+    std::cout << " }";
+  }
+  void GenerateIR() const override
+  {
+    if (!decl)
+    {
+      std::cout << "decl @getint(): i32\n\
+decl @getch(): i32\n\
+decl @getarray(*i32): i32\n\
+decl @putint(i32)\n\
+decl @putch(i32)\n\
+decl @putarray(i32, *i32)\n\
+decl @starttime()\n\
+decl @stoptime()\n\n";
+      decl = true;
+      func_ret["getint"] = true;
+      func_ret["getch"] = true;
+      func_ret["getarray"] = true;
+      func_params_num["getarray"] = 1;
+      func_params_num["putint"] = 1;
+      func_params_num["putch"] = 1;
+      func_params_num["putarray"] = 2;
     }
+    now_ = 0;
+    std::cout << "fun ";
+    std::cout << "@" << ident << "(";
+    if (p)
+      params->GenerateIR();
+    func_params_num[ident] = param_num;
+    param_num = 0;
+    std::cout << ")";
+    if (temptype)
+      std::cout << ": i32";
+    func_ret[ident] = temptype;
+    std::cout << "{" << endl;
+    std::cout << "%entry:" << endl;
+    if (p)
+    {
+      paraminfunc = true;
+      params->GenerateIR();
+      paraminfunc = false;
+    }
+    block->GenerateIR();
+    if (!block_ret)
+    {
+      if (func_ret[ident])
+        std::cout << "  ret 0" << endl;
+      else
+        std::cout << "  ret" << endl;
+    }
+    std::cout << "}" << endl;
+    std::cout << endl;
+    block_ret = false;
   }
 };
 
@@ -287,6 +329,8 @@ public:
   }
   void GenerateIR() const override
   {
+    d->glo = true;
+    d->GenerateIR();
   }
 };
 
@@ -305,6 +349,7 @@ public:
   }
   void GenerateIR() const override
   {
+    d->glo = glo;
     d->GenerateIR();
   }
 };
@@ -440,6 +485,7 @@ public:
   }
   void GenerateIR() const override
   {
+    vdl->glo = glo;
     vdl->GenerateIR();
   }
 };
@@ -469,7 +515,10 @@ public:
     for (const auto &def : vardeflist)
     {
       if (def) // 确保指针非空
+      {
+        def->glo = glo;
         def->GenerateIR();
+      }
     }
   }
 };
@@ -493,17 +542,34 @@ public:
   }
   void GenerateIR() const override
   {
-    string ident_ = ident + "_" + std::to_string(now_block);
-    var_vals.insert(ident_);
-    std::cout << "  @" << ident_ << " = alloc i32" << endl;
-    if (init)
+    if (glo)
     {
-      if (iv->isnum())
-        std::cout << "  store " << iv->calc() << ", @" << ident_ << endl;
+      string ident_ = ident + "_" + std::to_string(0);
+      var_vals.insert(ident_);
+      std::cout << "global  @" << ident_ << " = alloc i32, ";
+      if (init)
+      {
+        std::cout << iv->calc() << endl;
+      }
       else
       {
-        iv->GenerateIR();
-        std::cout << "  store %" << now_ - 1 << ", @" << ident_ << endl;
+        std::cout << "zeroinit" << endl;
+      }
+    }
+    else
+    {
+      string ident_ = ident + "_" + std::to_string(now_block);
+      var_vals.insert(ident_);
+      std::cout << "  @" << ident_ << " = alloc i32" << endl;
+      if (init)
+      {
+        if (iv->isnum())
+          std::cout << "  store " << iv->calc() << ", @" << ident_ << endl;
+        else
+        {
+          iv->GenerateIR();
+          std::cout << "  store %" << now_ - 1 << ", @" << ident_ << endl;
+        }
       }
     }
   }
@@ -559,6 +625,7 @@ public:
   }
   void GenerateIR() const override
   {
+    parentblock[0] = -1;
     if (!empty)
     {
       block_cnt++;
@@ -889,6 +956,7 @@ public:
   {
     if_cnt++;
     int now_if = if_cnt;
+    int temp_ret = false;
     if (e->isnum())
     {
       std::cout << "  %" << now_ << " = ne ";
@@ -903,6 +971,7 @@ public:
 
     std::cout << "%then" << now_if << ":" << std::endl;
     ifs->GenerateIR();
+    temp_ret = block_ret;
     if (!block_ret)
       std::cout << "  jump %end" << now_if << std::endl;
     block_ret = false;
@@ -910,12 +979,14 @@ public:
 
     std::cout << "%else" << now_if << ":" << std::endl;
     els->GenerateIR();
+    temp_ret = temp_ret && block_ret;
     if (!block_ret)
       std::cout << "  jump %end" << now_if << std::endl;
-    block_ret = false;
+    block_ret = temp_ret;
     std::cout << std::endl;
 
-    std::cout << "%end" << now_if << ":" << std::endl;
+    if (!block_ret)
+      std::cout << "%end" << now_if << ":" << std::endl;
   }
 };
 
@@ -986,15 +1057,18 @@ public:
   }
   void GenerateIR() const override
   {
-    if (bc == "break")
+    if (now_circ != -1)
     {
-      std::cout << "  jump %whileend" << now_circ << std::endl;
-      block_ret = 1;
-    }
-    else
-    {
-      std::cout << "  jump %while_entry" << now_circ << std::endl;
-      block_ret = 1;
+      if (bc == "break")
+      {
+        std::cout << "  jump %whileend" << now_circ << std::endl;
+        block_ret = 1;
+      }
+      else
+      {
+        std::cout << "  jump %while_entry" << now_circ << std::endl;
+        block_ret = 1;
+      }
     }
   }
 };
@@ -1265,7 +1339,7 @@ public:
     {
       std::cout << "  %" << now_ << " = call @" << ident << "(";
       now_++;
-      if (p)
+      if (ident == "getarray" || p)
       {
         for (auto it = params_.end() - func_params_num[ident]; it != params_.end(); it++)
         {
