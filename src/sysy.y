@@ -93,6 +93,7 @@ SinCompUnit
     auto ast = new SinCompUnitAST();
     ast->c = true;
     ast->de = unique_ptr<BaseAST>($1);
+    ast->de->glo = true;
     $$ = ast;
   }
   ;
@@ -238,6 +239,14 @@ ConstDef
     ast->ident = *unique_ptr<string>($1);
     ast->size = unique_ptr<BaseAST>($2);
     ast->civ = unique_ptr<BaseAST>($4);
+    $$=ast;
+  }
+  | IDENT ArraySize {
+    auto ast = new ConstDefAST();
+    ast->arr = true;
+    ast->init = false;
+    ast->ident = *unique_ptr<string>($1);
+    ast->size = unique_ptr<BaseAST>($2);
     $$=ast;
   }
   ;
