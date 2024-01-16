@@ -384,22 +384,26 @@ ArrayInitVal
 ArrayVal
   : InitVal {
     auto ast = new ArrayValAST();
+    ast->type = 0;
     ast->iv = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | InitVal ',' ArrayVal {
     auto ast = new ArrayValAST();
+    ast->type = 1;
     ast->iv = unique_ptr<BaseAST>($1);
     ast->av = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   | ArrayInitVal {
     auto ast = new ArrayValAST();
+    ast->type = 2;
     ast->aiv = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | ArrayInitVal ',' ArrayVal {
     auto ast = new ArrayValAST();
+    ast->type = 3;
     ast->aiv = unique_ptr<BaseAST>($1);
     ast->av = unique_ptr<BaseAST>($3);
     $$ = ast;

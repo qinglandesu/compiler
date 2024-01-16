@@ -26,6 +26,7 @@ static std::vector<std::string> param_val;
 static std::vector<std::string> param_name;
 static int aiv_depth = 0;
 static std::vector<int> arrsize_;
+static std::vector<int> arrinitval;
 static std::unordered_map<std::string, bool> func_ret;
 static std::unordered_map<std::string, int> func_params_num;
 static std::unordered_map<std::string, int> const_vals;
@@ -484,19 +485,53 @@ public:
       {
         std::cout << ", " << arrsize_[it] << "]";
       }
-      std::cout << ", ";
       if (init)
       {
         civ->glo = glo;
         civ->GenerateIR();
+        if (glo)
+        {
+          std::cout << ", ";
+          std::cout << "{";
+          for (int i = 0; i < arrinitval.size() - 1; i++)
+            std::cout << arrinitval[i];
+          std::cout << arrinitval[arrinitval.size() - 1] << "}";
+        }
+        else
+        {
+          std::cout << endl;
+          int i = 0;
+          for (i; i < arrinitval.size(); i++)
+          {
+            std::cout << "  %" << now_ << " = getelemptr @" << ident_ << ", " << i << endl;
+            std::cout << "  store " << arrinitval[i] << ", %" << now_ << endl;
+            now_++;
+          }
+          for (i; i < arrsize_.back(); i++)
+          {
+            std::cout << "  %" << now_ << " = getelemptr @" << ident_ << ", " << i << endl;
+            std::cout << "  store " << 0 << ", %" << now_ << endl;
+            now_++;
+          }
+        }
       }
       else
       {
         if (glo)
           std::cout << "zeroinit";
+        else
+        {
+          for (int i = 0; i < arrsize_.back(); i++)
+          {
+            std::cout << "  %" << now_ << " = getelemptr @" << ident_ << ", " << i;
+            std::cout << "  store " << 0 << ", %" << now_ << endl;
+            now_++;
+          }
+        }
       }
       std::cout << endl;
       arrsize_.clear();
+      arrinitval.clear();
     }
     else
     {
@@ -586,6 +621,23 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (type)
+    {
+    case 0:
+      iv->GenerateIR();
+      break;
+    case 1:
+      iv->GenerateIR();
+      av->GenerateIR();
+      break;
+    case 2:
+      aiv->GenerateIR();
+      break;
+    case 3:
+      aiv->GenerateIR();
+      av->GenerateIR();
+      break;
+    }
   }
 };
 
@@ -604,6 +656,7 @@ public:
   }
   void GenerateIR() const override
   {
+    arrinitval.push_back(ce->calc());
   }
   int calc() const override
   {
@@ -710,16 +763,43 @@ public:
       if (init)
       {
         iv->glo = glo;
-        std::cout << ", ";
         iv->GenerateIR();
+        if (glo)
+        {
+          std::cout << ", ";
+          std::cout << "{";
+          for (int i = 0; i < arrinitval.size() - 1; i++)
+            std::cout << arrinitval[i];
+          std::cout << arrinitval[arrinitval.size() - 1] << "}";
+        }
+        else
+        {
+          std::cout << endl;
+          int i = 0;
+          for (i; i < arrinitval.size(); i++)
+          {
+            std::cout << "  %" << now_ << " = getelemptr @" << ident_ << ", " << i << endl;
+            std::cout << "  store " << arrinitval[i] << ", %" << now_ << endl;
+            now_++;
+          }
+          for (i; i < arrsize_.back(); i++)
+          {
+            std::cout << "  %" << now_ << " = getelemptr @" << ident_ << ", " << i << endl;
+            std::cout << "  store " << 0 << ", %" << now_ << endl;
+            now_++;
+          }
+        }
       }
       else
       {
         if (glo)
-          std::cout << ", zeroinit";
+        {
+          std::cout << ", zeroinit" << endl;
+        }
       }
       std::cout << endl;
       arrsize_.clear();
+      arrinitval.clear();
     }
     else
     {
@@ -768,9 +848,7 @@ public:
   }
   void GenerateIR() const override
   {
-    if (empty)
-      std::cout << "zeroinit";
-    else
+    if (!empty)
       av->GenerateIR();
   }
 };
@@ -807,6 +885,23 @@ public:
   }
   void GenerateIR() const override
   {
+    switch (type)
+    {
+    case 0:
+      arrinitval.push_back(iv->calc());
+      break;
+    case 1:
+      arrinitval.push_back(iv->calc());
+      av->GenerateIR();
+      break;
+    case 2:
+      aiv->GenerateIR();
+      break;
+    case 3:
+      aiv->GenerateIR();
+      av->GenerateIR();
+      break;
+    }
   }
 };
 
